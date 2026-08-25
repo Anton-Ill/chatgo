@@ -514,10 +514,71 @@
             .back-button {
                 display: block;
             }
+        /* Access Denied Overlay */
+        .access-denied-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background-color: rgba(11, 14, 20, 0.95);
+            backdrop-filter: blur(20px);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+
+        .overlay-card {
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .overlay-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .overlay-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .overlay-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-secondary);
         }
     </style>
 </head>
 <body>
+    <!-- Access Denied Overlay -->
+    <div class="access-denied-overlay" id="auth-overlay" style="display: none;">
+        <div class="overlay-card">
+            <div class="overlay-icon">🔒</div>
+            <h2 class="overlay-title">Доступ ограничен</h2>
+            <p class="overlay-desc">Эта панель доступна исключительно авторизованным операторам внутри встроенного приложения Telegram (WebApp).</p>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Sidebar / Chat list -->
         <div class="sidebar" id="sidebar">
@@ -580,6 +641,35 @@
         let chatsList = [];
         let pollingInterval = null;
 
+        // Вспомогательная функция для запросов с авторизацией WebApp
+        async function tgFetch(url, options = {}) {
+            if (!options.headers) {
+                options.headers = {};
+            }
+            if (tg && tg.initData) {
+                options.headers['X-TG-Init-Data'] = tg.initData;
+            }
+            try {
+                const response = await fetch(url, options);
+                
+                // Проверяем, вернул ли API ошибку авторизации
+                const clone = response.clone();
+                try {
+                    const data = await clone.json();
+                    if (data && data.ok === false && data.error === 'Доступ запрещен: Не авторизован') {
+                        document.getElementById('auth-overlay').style.display = 'flex';
+                        if (pollingInterval) clearInterval(pollingInterval);
+                    }
+                } catch (e) {
+                    // Игнорируем ошибки парсинга
+                }
+                return response;
+            } catch (err) {
+                console.error("tgFetch error:", err);
+                throw err;
+            }
+        }
+
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             // Инициализация Telegram WebApp
@@ -625,7 +715,7 @@
         // Загрузить список чатов с сервера
         async function loadChats() {
             try {
-                const response = await fetch('/api/chats/list.php');
+                const response = await tgFetch('/api/chats/list.php');
                 const data = await response.json();
                 if (data.ok) {
                     chatsList = data.chats;
@@ -722,7 +812,7 @@
             if (!currentChatId) return;
 
             try {
-                const response = await fetch(`/api/chats/messages.php?chat_id=${currentChatId}`);
+                const response = await tgFetch(`/api/chats/messages.php?chat_id=${currentChatId}`);
                 const data = await response.json();
                 if (data.ok) {
                     renderMessages(data.messages);
@@ -779,7 +869,7 @@
             input.style.height = '48px';
 
             try {
-                const response = await fetch('/api/send_message.php', {
+                const response = await tgFetch('/api/send_message.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

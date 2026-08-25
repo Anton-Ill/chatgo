@@ -8,10 +8,21 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../config/db.php';
 
+use Chatgo\Security\WebAppAuthenticator;
+
 header('Content-Type: application/json');
 
 try {
     $db = DB::getConnection();
+
+    // Проверка авторизации
+    if (!WebAppAuthenticator::authenticate($db)) {
+        echo json_encode([
+            'ok' => false,
+            'error' => 'Доступ запрещен: Не авторизован'
+        ]);
+        exit;
+    }
 
     $stmt = $db->query('
         SELECT 

@@ -12,10 +12,21 @@ use Chatgo\Services\MessageService;
 use Chatgo\Adapters\TelegramAdapter;
 use Chatgo\Adapters\VkAdapter;
 
+use Chatgo\Security\WebAppAuthenticator;
+
 header('Content-Type: application/json');
 
 try {
     $db = DB::getConnection();
+
+    // Проверка авторизации
+    if (!WebAppAuthenticator::authenticate($db)) {
+        echo json_encode([
+            'ok' => false,
+            'error' => 'Доступ запрещен: Не авторизован'
+        ]);
+        exit;
+    }
 
     // Читаем JSON POST запрос
     $rawInput = file_get_contents('php://input');
