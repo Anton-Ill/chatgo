@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/db.php';
 
 use Chatgo\Services\MessageService;
 use Chatgo\Adapters\TelegramAdapter;
+use Chatgo\Adapters\VkAdapter;
 
 header('Content-Type: application/json');
 
@@ -54,6 +55,14 @@ try {
         }
         
         $adapter = new TelegramAdapter($botToken, TELEGRAM_API_URL, CHATGO_SECRET);
+        $sent = $adapter->sendMessage($clientExternalId, $text);
+    } elseif ($channelType === 'vk') {
+        $accessToken = $settings['access_token'] ?? null;
+        if (!$accessToken) {
+            throw new Exception("Токен доступа VK не настроен для данного канала.");
+        }
+        
+        $adapter = new VkAdapter($accessToken);
         $sent = $adapter->sendMessage($clientExternalId, $text);
     } else {
         throw new Exception("Тип канала '{$channelType}' пока не поддерживается для отправки.");
