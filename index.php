@@ -35,7 +35,7 @@
         body {
             background-color: var(--bg-color);
             color: var(--text-primary);
-            height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -44,7 +44,7 @@
 
         .app-container {
             width: 100vw;
-            height: 100vh;
+            height: 100dvh;
             display: flex;
             background: radial-gradient(circle at top right, #1e1b4b 0%, var(--bg-color) 60%);
         }
@@ -501,7 +501,7 @@
                 position: absolute;
                 top: 0;
                 left: 0;
-                height: 100%;
+                height: 100dvh;
                 background-color: var(--bg-color);
                 z-index: 20;
                 transform: translateX(100%);
@@ -669,11 +669,9 @@
             document.getElementById('empty-state').style.display = 'none';
             document.getElementById('chat-content').style.display = 'flex';
             
-            // Адаптивная мобильная анимация
-            if (window.innerWidth <= 768) {
-                document.getElementById('chat-window').classList.add('active');
-                document.getElementById('sidebar').classList.add('hidden');
-            }
+            // Адаптивная мобильная анимация (классы применяются только при мобильном CSS)
+            document.getElementById('chat-window').classList.add('active');
+            document.getElementById('sidebar').classList.add('hidden');
 
             // Обновляем шапку чата
             document.getElementById('header-name').innerText = clientName;
