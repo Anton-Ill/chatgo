@@ -11,6 +11,7 @@ require_once __DIR__ . '/../config/db.php';
 use Chatgo\Services\MessageService;
 use Chatgo\Adapters\TelegramAdapter;
 use Chatgo\Adapters\VkAdapter;
+use Chatgo\Adapters\WhatsAppAdapter;
 
 use Chatgo\Security\WebAppAuthenticator;
 
@@ -74,6 +75,15 @@ try {
         }
         
         $adapter = new VkAdapter($accessToken);
+        $sent = $adapter->sendMessage($clientExternalId, $text);
+    } elseif ($channelType === 'whatsapp') {
+        $accessToken = $settings['access_token'] ?? null;
+        $phoneNumberId = $settings['phone_number_id'] ?? null;
+        if (!$accessToken || !$phoneNumberId) {
+            throw new Exception("Токен или Phone Number ID WhatsApp не настроен для данного канала.");
+        }
+        
+        $adapter = new WhatsAppAdapter($accessToken, $phoneNumberId);
         $sent = $adapter->sendMessage($clientExternalId, $text);
     } else {
         throw new Exception("Тип канала '{$channelType}' пока не поддерживается для отправки.");
