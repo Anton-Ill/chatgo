@@ -82,6 +82,12 @@ try {
         $parsed['external_id']
     );
 
+    // Отправляем уведомление оператору, если ID настроен и сообщение пришло от клиента
+    if (defined('OPERATOR_TELEGRAM_ID') && OPERATOR_TELEGRAM_ID !== '' && $parsed['client_external_id'] !== OPERATOR_TELEGRAM_ID) {
+        $notifyText = "🔔 Новое сообщение от {$parsed['client_name']}:\n\"{$parsed['text']}\"";
+        $adapter->sendMessage(OPERATOR_TELEGRAM_ID, $notifyText);
+    }
+
     echo json_encode([
         'ok' => true,
         'message_id' => $messageId,

@@ -46,7 +46,9 @@ define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 // Константы API и безопасности
 define('TELEGRAM_API_URL', getenv('TELEGRAM_API_URL') ?: 'https://client.chatgot.ru/tg-api');
 define('CHATGO_SECRET', getenv('CHATGO_SECRET') ?: 'CG_Secret_Gate_2026_Secure');
+define('OPERATOR_TELEGRAM_ID', getenv('OPERATOR_TELEGRAM_ID') ?: '');
 define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/01_Chatgo');
+
 
 // Настройки SMTP
 define('SMTP_HOST', getenv('SMTP_HOST') ?: '');

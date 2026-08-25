@@ -20,6 +20,9 @@ $pos = strpos($requestUri, $tgApiPattern);
 if ($pos !== false) {
     // Вырезаем все, что идет после /tg-api/
     $path = substr($requestUri, $pos + strlen($tgApiPattern));
+    if (str_starts_with($path, 'index.php')) {
+        $path = $_GET['tg_path'] ?? '';
+    }
 } else {
     // Альтернативный вариант через GET-параметр
     $path = $_GET['tg_path'] ?? '';
@@ -38,6 +41,20 @@ if (empty($path) || !str_starts_with($path, 'bot')) {
         'ok' => false,
         'error_code' => 400,
         'description' => 'Bad Request: Invalid Telegram bot token path'
+    ]);
+    exit;
+}
+
+// Режим песочницы для тестирования с мок-токенами
+if (str_contains($path, 'MOCK')) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'ok' => true,
+        'result' => [
+            'message_id' => rand(1000, 9999),
+            'date' => time(),
+            'text' => 'Mocked payload response'
+        ]
     ]);
     exit;
 }
