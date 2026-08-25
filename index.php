@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
             --bg-color: #0b0e14;
@@ -574,22 +575,34 @@
     </div>
 
     <script>
+        const tg = window.Telegram?.WebApp;
         let currentChatId = null;
         let chatsList = [];
         let pollingInterval = null;
 
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
+            // Инициализация Telegram WebApp
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                
+                // Скрываем HTML кнопку назад, так как будем использовать нативную от Telegram
+                document.getElementById('back-button').style.display = 'none';
+                
+                // Настраиваем клик по нативной кнопке назад Telegram
+                tg.BackButton.onClick(() => {
+                    handleBackAction();
+                });
+            }
+
             loadChats();
             // Запуск фонового опроса чатов каждые 3 секунды
             setInterval(loadChats, 3000);
 
             // Обработка кнопки "Назад" на мобильных устройствах
             document.getElementById('back-button').addEventListener('click', () => {
-                document.getElementById('chat-window').classList.remove('active');
-                document.getElementById('sidebar').classList.remove('hidden');
-                currentChatId = null;
-                clearInterval(pollingInterval);
+                handleBackAction();
             });
 
             // Обработка ввода поиска
@@ -597,6 +610,17 @@
                 filterChats(e.target.value);
             });
         });
+
+        // Единое действие возврата к списку чатов
+        function handleBackAction() {
+            document.getElementById('chat-window').classList.remove('active');
+            document.getElementById('sidebar').classList.remove('hidden');
+            currentChatId = null;
+            if (pollingInterval) clearInterval(pollingInterval);
+            if (tg) {
+                tg.BackButton.hide();
+            }
+        }
 
         // Загрузить список чатов с сервера
         async function loadChats() {
@@ -672,6 +696,10 @@
             // Адаптивная мобильная анимация (классы применяются только при мобильном CSS)
             document.getElementById('chat-window').classList.add('active');
             document.getElementById('sidebar').classList.add('hidden');
+
+            if (tg) {
+                tg.BackButton.show();
+            }
 
             // Обновляем шапку чата
             document.getElementById('header-name').innerText = clientName;
