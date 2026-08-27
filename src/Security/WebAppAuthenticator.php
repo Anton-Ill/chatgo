@@ -50,11 +50,21 @@ class WebAppAuthenticator
             return false;
         }
 
-        // 5. Проверяем, совпадает ли ID пользователя с настроенным OPERATOR_TELEGRAM_ID
+        // 5. Проверяем, привязан ли Telegram ID оператора в БД
         $tgUserId = (string) ($userData['id'] ?? '');
-        $allowedOperatorId = defined('OPERATOR_TELEGRAM_ID') ? (string) OPERATOR_TELEGRAM_ID : '';
+        if ($tgUserId === '') {
+            return false;
+        }
 
-        return $tgUserId !== '' && $tgUserId === $allowedOperatorId;
+        $userStmt = $db->prepare("SELECT id FROM users WHERE telegram_id = ? LIMIT 1");
+        $userStmt->execute([$tgUserId]);
+        if ($userStmt->fetch() !== false) {
+            return true;
+        }
+
+        // Fallback: проверка по OPERATOR_TELEGRAM_ID константе
+        $allowedOperatorId = defined('OPERATOR_TELEGRAM_ID') ? (string) OPERATOR_TELEGRAM_ID : '';
+        return $allowedOperatorId !== '' && $tgUserId === $allowedOperatorId;
     }
 
     /**

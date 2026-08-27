@@ -905,6 +905,17 @@
                 <div class="channels-list" id="channels-list">
                     <!-- Динамический список подключенных каналов -->
                 </div>
+                <!-- Секция Telegram-уведомлений для оператора -->
+                <div class="notifications-section" id="notifications-section" style="margin: 15px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-weight: 500; margin-bottom: 8px; font-size: 14px;">🔔 Уведомления оператора в Telegram</div>
+                    <div id="notifications-status-container" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="notifications-status-badge" class="channel-status disconnected" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; display: inline-block;">Проверка статуса...</span>
+                        <button id="notifications-bind-btn" class="add-channel-btn" style="width: auto; margin: 0; padding: 6px 12px; font-size: 12px; display: none;" onclick="bindTelegramNotifications()">
+                            Подключить
+                        </button>
+                    </div>
+                </div>
+
                 <button class="add-channel-btn" onclick="openAddChannelModal()">
                     <span>+</span> Подключить канал
                 </button>
@@ -1031,6 +1042,7 @@
         let currentChatId = null;
         let chatsList = [];
         let pollingInterval = null;
+        let notificationsPollingInterval = null;
 
         // Вспомогательная функция для запросов с авторизацией WebApp
         async function tgFetch(url, options = {}) {
@@ -1131,6 +1143,11 @@
             }
             
             loadChannels();
+            
+            // Опрос статуса уведомлений
+            checkNotificationsStatus();
+            if (notificationsPollingInterval) clearInterval(notificationsPollingInterval);
+            notificationsPollingInterval = setInterval(checkNotificationsStatus, 4000);
         }
 
         // Закрыть панель настроек каналов
@@ -1144,6 +1161,70 @@
 
             if (tg) {
                 tg.BackButton.hide();
+            }
+
+            if (notificationsPollingInterval) {
+                clearInterval(notificationsPollingInterval);
+                notificationsPollingInterval = null;
+            }
+        }
+
+        // Проверить статус уведомлений оператора
+        async function checkNotificationsStatus() {
+            try {
+                const response = await tgFetch('/api/channels/get_bind_status.php');
+                const data = await response.json();
+                
+                const badge = document.getElementById('notifications-status-badge');
+                const btn = document.getElementById('notifications-bind-btn');
+                
+                if (data.ok) {
+                    if (data.is_bound) {
+                        badge.innerText = `Подключено (ID: ${data.telegram_id})`;
+                        badge.className = 'channel-status connected';
+                        btn.style.display = 'none';
+                    } else {
+                        badge.innerText = 'Не подключено';
+                        badge.className = 'channel-status disconnected';
+                        btn.style.display = 'block';
+                    }
+                } else {
+                    badge.innerText = 'Ошибка проверки';
+                    badge.className = 'channel-status disconnected';
+                    btn.style.display = 'none';
+                }
+            } catch (err) {
+                console.error("Ошибка при проверке статуса уведомлений:", err);
+            }
+        }
+
+        // Запустить привязку уведомлений в Telegram
+        async function bindTelegramNotifications() {
+            const btn = document.getElementById('notifications-bind-btn');
+            btn.disabled = true;
+            btn.innerText = 'Генерация...';
+            
+            try {
+                const response = await tgFetch('/api/channels/add_bind.php');
+                const data = await response.json();
+                
+                if (data.ok && data.bind_url) {
+                    btn.innerText = 'Переход...';
+                    // Если запущено внутри Telegram WebApp, используем нативный переход
+                    if (tg && typeof tg.openTelegramLink === 'function') {
+                        tg.openTelegramLink(data.bind_url);
+                    } else {
+                        window.open(data.bind_url, '_blank');
+                    }
+                } else {
+                    alert("Ошибка генерации ссылки привязки:\n" + (data.error || 'Неизвестная ошибка'));
+                }
+            } catch (err) {
+                console.error("Ошибка при привязке уведомлений:", err);
+                alert("Ошибка сети при генерации ссылки привязки");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Подключить';
             }
         }
 

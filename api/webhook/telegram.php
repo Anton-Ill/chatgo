@@ -65,6 +65,44 @@ try {
         exit;
     }
 
+    // Перехватываем команду /start bind_ от оператора
+    if (str_starts_with($parsed['text'], '/start bind_')) {
+        $bindToken = substr($parsed['text'], 12);
+        
+        $stmtToken = $db->prepare('
+            SELECT user_id FROM auth_tokens 
+            WHERE token = ? AND used = 0 AND expires_at > ? 
+            LIMIT 1
+        ');
+        $stmtToken->execute([$bindToken, date('Y-m-d H:i:s')]);
+        $bindData = $stmtToken->fetch();
+        
+        if ($bindData) {
+            $userIdToBind = (int) $bindData['user_id'];
+            
+            // Привязываем Telegram ID к пользователю в БД
+            $stmtUpdate = $db->prepare('UPDATE users SET telegram_id = ? WHERE id = ?');
+            $stmtUpdate->execute([$parsed['client_external_id'], $userIdToBind]);
+            
+            // Помечаем токен как использованный
+            $stmtUseToken = $db->prepare('UPDATE auth_tokens SET used = 1 WHERE token = ?');
+            $stmtUseToken->execute([$bindToken]);
+            
+            $adapter->sendMessage(
+                $parsed['client_external_id'],
+                "🎉 Уведомления Telegram успешно подключены!\nТеперь вы будете мгновенно получать сюда сообщения от клиентов."
+            );
+        } else {
+            $adapter->sendMessage(
+                $parsed['client_external_id'],
+                "❌ Ошибка подключения: Ссылка привязки недействительна или устарела. Сгенерируйте новую ссылку в панели настроек."
+            );
+        }
+        
+        echo json_encode(['ok' => true, 'description' => 'Команда привязки обработана']);
+        exit;
+    }
+
     // Регистрируем/получаем чат
     $chatId = $chatService->getOrCreateChat(
         $channelId,
