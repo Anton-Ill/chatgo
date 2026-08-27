@@ -12,6 +12,7 @@ use Chatgo\Services\MessageService;
 use Chatgo\Adapters\TelegramAdapter;
 use Chatgo\Adapters\VkAdapter;
 use Chatgo\Adapters\WhatsAppAdapter;
+use Chatgo\Adapters\InstagramAdapter;
 
 use Chatgo\Security\WebAppAuthenticator;
 
@@ -84,6 +85,15 @@ try {
         }
         
         $adapter = new WhatsAppAdapter($accessToken, $phoneNumberId);
+        $sent = $adapter->sendMessage($clientExternalId, $text);
+    } elseif ($channelType === 'instagram') {
+        $accessToken = $settings['access_token'] ?? null;
+        $instagramAccountId = $settings['instagram_account_id'] ?? null;
+        if (!$accessToken) {
+            throw new Exception("Токен доступа Instagram не настроен для данного канала.");
+        }
+        
+        $adapter = new InstagramAdapter($accessToken, $instagramAccountId);
         $sent = $adapter->sendMessage($clientExternalId, $text);
     } else {
         throw new Exception("Тип канала '{$channelType}' пока не поддерживается для отправки.");

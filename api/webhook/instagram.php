@@ -1,0 +1,121 @@
+<?php
+
+/**
+ * Webhook Endpoint: Instagram Messaging API (Meta)
+ */
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../config/db.php';
+
+use Chatgo\Services\ChatService;
+use Chatgo\Services\MessageService;
+use Chatgo\Adapters\InstagramAdapter;
+use Chatgo\Adapters\TelegramAdapter;
+
+// Instagram Graph API ожидает JSON-ответы
+header('Content-Type: application/json');
+
+try {
+    $db = DB::getConnection();
+
+    $channelId = isset($_GET['channel_id']) ? (int) $_GET['channel_id'] : null;
+
+    if (!$channelId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'channel_id parameter is required']);
+        exit;
+    }
+
+    // 1. Получаем настройки канала
+    $stmt = $db->prepare('SELECT type, settings FROM channels WHERE id = ?');
+    $stmt->execute([$channelId]);
+    $channel = $stmt->fetch();
+
+    if (!$channel || $channel['type'] !== 'instagram') {
+        http_response_code(404);
+        echo json_encode(['error' => 'Instagram channel not found']);
+        exit;
+    }
+
+    $settings = json_decode($channel['settings'] ?? '{}', true);
+    $verifyToken = $settings['verify_token'] ?? '';
+    $accessToken = $settings['access_token'] ?? '';
+    $instagramAccountId = $settings['instagram_account_id'] ?? '';
+
+    // 2. Обработка верификации вебхука (GET-запрос от Meta)
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $mode = $_GET['hub_mode'] ?? '';
+        $token = $_GET['hub_verify_token'] ?? '';
+        $challenge = $_GET['hub_challenge'] ?? '';
+
+        if ($mode === 'subscribe' && $token === $verifyToken) {
+            http_response_code(200);
+            echo $challenge;
+            exit;
+        }
+
+        http_response_code(403);
+        echo json_encode(['error' => 'Verification failed']);
+        exit;
+    }
+
+    // 3. Обработка входящих сообщений (POST-запрос)
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true);
+
+    if (!$payload) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON payload']);
+        exit;
+    }
+
+    // Проверяем, что это событие сообщения Instagram
+    $adapter = new InstagramAdapter($accessToken, $instagramAccountId);
+    $parsed = $adapter->parseWebhookPayload($payload);
+
+    if ($parsed) {
+        $chatService = new ChatService($db);
+        $messageService = new MessageService($db);
+
+        // Находим или создаем чат с клиентом
+        $chatId = $chatService->getOrCreateChat(
+            $channelId,
+            $parsed['client_external_id'],
+            $parsed['client_name']
+        );
+
+        // Записываем входящее сообщение
+        $messageId = $messageService->recordMessage(
+            $chatId,
+            'incoming',
+            $parsed['text'],
+            $parsed['type'],
+            null,
+            $parsed['external_id']
+        );
+
+        // Отправляем уведомление оператору в Telegram, если ID настроен
+        if (defined('OPERATOR_TELEGRAM_ID') && OPERATOR_TELEGRAM_ID !== '') {
+            $tgStmt = $db->query("SELECT settings FROM channels WHERE type = 'telegram' LIMIT 1");
+            $tgChannel = $tgStmt->fetch();
+            if ($tgChannel) {
+                $tgSettings = json_decode($tgChannel['settings'] ?? '{}', true);
+                $tgToken = $tgSettings['token'] ?? null;
+                if ($tgToken) {
+                    $notifyText = "🔔 Новое сообщение из Instagram Direct от {$parsed['client_name']}:\n\"{$parsed['text']}\"";
+                    $tgAdapter = new TelegramAdapter($tgToken, TELEGRAM_API_URL, CHATGO_SECRET);
+                    $tgAdapter->sendMessage(OPERATOR_TELEGRAM_ID, $notifyText);
+                }
+            }
+        }
+    }
+
+    // Meta API ожидает HTTP 200 для подтверждения получения
+    http_response_code(200);
+    echo json_encode(['status' => 'ok']);
+
+} catch (Throwable $e) {
+    http_response_code(200);
+    echo json_encode(['error' => $e->getMessage()]);
+}
