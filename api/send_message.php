@@ -13,6 +13,7 @@ use Chatgo\Adapters\TelegramAdapter;
 use Chatgo\Adapters\VkAdapter;
 use Chatgo\Adapters\WhatsAppAdapter;
 use Chatgo\Adapters\InstagramAdapter;
+use Chatgo\Adapters\MaxAdapter;
 
 use Chatgo\Security\WebAppAuthenticator;
 
@@ -94,6 +95,14 @@ try {
         }
         
         $adapter = new InstagramAdapter($accessToken, $instagramAccountId);
+        $sent = $adapter->sendMessage($clientExternalId, $text);
+    } elseif ($channelType === 'max') {
+        $accessToken = $settings['access_token'] ?? null;
+        if (!$accessToken) {
+            throw new Exception("Токен доступа MAX не настроен для данного канала.");
+        }
+        
+        $adapter = new MaxAdapter($accessToken);
         $sent = $adapter->sendMessage($clientExternalId, $text);
     } else {
         throw new Exception("Тип канала '{$channelType}' пока не поддерживается для отправки.");
