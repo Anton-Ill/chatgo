@@ -33,6 +33,13 @@ if [ -d "$PROJECT_DIR/service-telegram" ]; then
     cd "$PROJECT_DIR"
 fi
 
+if [ -f "$PROJECT_DIR/deploy/chatgo-telegram-tunnel.service" ]; then
+    cp "$PROJECT_DIR/deploy/chatgo-telegram-tunnel.service" /etc/systemd/system/chatgo-telegram-tunnel.service
+    systemctl daemon-reload
+    systemctl enable chatgo-telegram-tunnel
+    systemctl restart chatgo-telegram-tunnel
+fi
+
 if [ -f "$PROJECT_DIR/deploy/chatgo-telegram-personal.service" ]; then
     cp "$PROJECT_DIR/deploy/chatgo-telegram-personal.service" /etc/systemd/system/chatgo-telegram-personal.service
     systemctl daemon-reload

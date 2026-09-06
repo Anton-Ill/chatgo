@@ -14,6 +14,11 @@ const HOST = process.env.HOST || '127.0.0.1';
 const WEBHOOK_URL = process.env.CHATGO_WEBHOOK_URL || 'http://127.0.0.1/api/webhook/telegram_personal.php';
 const CHATGO_SECRET = process.env.CHATGO_SECRET || 'CG_Secret_Gate_2026_Secure';
 
+// Настройки SOCKS5 / MTProto прокси (для обхода сетевых ограничений)
+const PROXY_HOST = process.env.TELEGRAM_PROXY_HOST || '';
+const PROXY_PORT = parseInt(process.env.TELEGRAM_PROXY_PORT || '0', 10);
+const PROXY_TYPE = parseInt(process.env.TELEGRAM_PROXY_TYPE || '5', 10);
+
 // Telegram API credentials (стандартные Telegram Android / Desktop или из env)
 const API_ID = parseInt(process.env.TELEGRAM_API_ID || '6', 10);
 const API_HASH = process.env.TELEGRAM_API_HASH || 'eb06d4abfb49dc3eeb1aeb98ae0f581e';
@@ -200,14 +205,24 @@ async function initClient(sessionString = '') {
         }
     }
 
-    const stringSession = new StringSession(sessionString);
-    client = new TelegramClient(stringSession, API_ID, API_HASH, {
+    const clientOptions = {
         connectionRetries: 5,
         deviceModel: 'Chatgo Gateway',
         appVersion: '1.0.0',
         systemVersion: 'Linux',
         useWSS: false
-    });
+    };
+
+    if (PROXY_HOST && PROXY_PORT > 0) {
+        clientOptions.proxy = {
+            ip: PROXY_HOST,
+            port: PROXY_PORT,
+            socksType: PROXY_TYPE
+        };
+    }
+
+    const stringSession = new StringSession(sessionString);
+    client = new TelegramClient(stringSession, API_ID, API_HASH, clientOptions);
 
     await client.connect();
 
@@ -520,17 +535,24 @@ app.post('/api/logout', async (req, res) => {
 
 // Запуск сервера
 async function main() {
-    const savedSession = loadSession();
-    try {
-        await initClient(savedSession);
-    } catch (err) {
-        console.error('[Init] Ошибка первичной инициализации клиента:', err.message);
-    }
-
+    // 1. Немедленно запускаем HTTP-сервер, чтобы порт 3005 был ВСЕГДА доступен для PHP API
     app.listen(PORT, HOST, () => {
         console.log(`[Server] Chatgo Telegram Personal Service запущен на http://${HOST}:${PORT}`);
         console.log(`[Server] Вебхук URL Chatgo: ${WEBHOOK_URL}`);
+        if (PROXY_HOST && PROXY_PORT > 0) {
+            console.log(`[Server] MTProto прокси активирован: ${PROXY_HOST}:${PROXY_PORT} (SOCKS${PROXY_TYPE})`);
+        }
     });
+
+    // 2. Если есть сохраненная сессия, восстанавливаем подключение в фоне без блокировки сервера
+    const savedSession = loadSession();
+    if (savedSession) {
+        initClient(savedSession).catch(err => {
+            console.error('[Init] Ошибка восстановления сохраненной сессии:', err.message);
+        });
+    } else {
+        console.log('[Init] Сохраненная сессия отсутствует. Ожидание авторизации через QR или телефон.');
+    }
 }
 
 main().catch(err => {

@@ -1,0 +1,13 @@
+[Unit]
+Description=Chatgo Telegram SOCKS5 SSH Tunnel to Netherlands
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/ssh -NT -D 127.0.0.1:1080 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no root@212.43.148.31
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
