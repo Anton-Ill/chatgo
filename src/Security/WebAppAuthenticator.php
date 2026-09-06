@@ -62,6 +62,19 @@ class WebAppAuthenticator
             return true;
         }
 
+        // Автопривязка первого оператора: если в системе еще нет ни одного привязанного Telegram ID,
+        // автоматически связываем первого пользователя с валидной криптографической подписью бота
+        $hasBoundOperator = (bool) $db->query("SELECT id FROM users WHERE telegram_id IS NOT NULL LIMIT 1")->fetchColumn();
+        if (!$hasBoundOperator) {
+            $firstUserStmt = $db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+            $firstUserId = $firstUserStmt->fetchColumn();
+            if ($firstUserId) {
+                $bindStmt = $db->prepare("UPDATE users SET telegram_id = ? WHERE id = ?");
+                $bindStmt->execute([$tgUserId, $firstUserId]);
+                return true;
+            }
+        }
+
         // Fallback: проверка по OPERATOR_TELEGRAM_ID константе
         $allowedOperatorId = defined('OPERATOR_TELEGRAM_ID') ? (string) OPERATOR_TELEGRAM_ID : '';
         return $allowedOperatorId !== '' && $tgUserId === $allowedOperatorId;

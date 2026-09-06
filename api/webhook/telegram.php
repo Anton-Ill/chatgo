@@ -103,6 +103,35 @@ try {
         exit;
     }
 
+    // Обработка команды /start
+    if (trim($parsed['text']) === '/start') {
+        $hasBoundOperator = (bool) $db->query("SELECT id FROM users WHERE telegram_id IS NOT NULL LIMIT 1")->fetchColumn();
+        if (!$hasBoundOperator) {
+            $firstUserId = $db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetchColumn();
+            if ($firstUserId) {
+                $stmtUpdate = $db->prepare('UPDATE users SET telegram_id = ? WHERE id = ?');
+                $stmtUpdate->execute([$parsed['client_external_id'], $firstUserId]);
+                $adapter->sendMessage(
+                    $parsed['client_external_id'],
+                    "👋 Добро пожаловать! Ваш Telegram ID успешно привязан к аккаунту администратора Chatgo.\n\nНажмите кнопку «Панель» в левом нижнем углу для входа в дашборд."
+                );
+                echo json_encode(['ok' => true, 'description' => 'Первый оператор автоматически привязан']);
+                exit;
+            }
+        } else {
+            $checkStmt = $db->prepare('SELECT id FROM users WHERE telegram_id = ? LIMIT 1');
+            $checkStmt->execute([$parsed['client_external_id']]);
+            if ($checkStmt->fetchColumn() !== false) {
+                $adapter->sendMessage(
+                    $parsed['client_external_id'],
+                    "👋 Здравствуйте! Вы авторизованы как оператор Chatgo.\n\nНажмите кнопку «Панель» в левом нижнем углу для открытия дашборда."
+                );
+                echo json_encode(['ok' => true, 'description' => 'Приветствие оператора']);
+                exit;
+            }
+        }
+    }
+
     // Регистрируем/получаем чат
     $chatId = $chatService->getOrCreateChat(
         $channelId,
