@@ -72,6 +72,63 @@ class TelegramAdapter implements ChannelInterface
     }
 
     /**
+     * Получить обновления через метод getUpdates (Long Polling).
+     *
+     * @param int $offset
+     * @param int $timeout
+     * @param int $limit
+     * @return array
+     */
+    public function getUpdates(int $offset = 0, int $timeout = 25, int $limit = 50): array
+    {
+        $url = rtrim($this->apiUrl, '/') . '/bot' . $this->botToken . '/getUpdates';
+
+        $payload = [
+            'timeout' => $timeout,
+            'limit' => $limit,
+            'allowed_updates' => ['message', 'callback_query']
+        ];
+        if ($offset > 0) {
+            $payload['offset'] = $offset;
+        }
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout + 10);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-Chatgo-Secret: ' . $this->secret
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false || $httpCode !== 200) {
+            return [];
+        }
+
+        $result = json_decode((string) $response, true);
+        return (isset($result['ok']) && $result['ok'] === true && is_array($result['result']))
+            ? $result['result']
+            : [];
+    }
+
+    /**
+     * Удалить вебхук Telegram бота.
+     */
+    public function deleteWebhook(): bool
+    {
+        $url = rtrim($this->apiUrl, '/') . '/bot' . $this->botToken . '/deleteWebhook';
+        return $this->sendPostRequest($url, []);
+    }
+
+    /**
      * Выполнение POST запроса к Telegram API через прокси-шлюз.
      */
     private function sendPostRequest(string $url, array $payload): bool

@@ -24,4 +24,9 @@ elif systemctl is-active --quiet php8.3-fpm; then
     systemctl reload php8.3-fpm
 fi
 
+echo "4. Restarting Telegram worker..."
+if systemctl is-active --quiet chatgo-telegram; then
+    systemctl restart chatgo-telegram
+fi
+
 echo "=== Deployment finished successfully ==="

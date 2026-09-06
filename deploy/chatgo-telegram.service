@@ -1,0 +1,17 @@
+[Unit]
+Description=Chatgo Telegram Long Polling Worker
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/chatgo.ru
+ExecStart=/usr/bin/php /www/wwwroot/chatgo.ru/bin/telegram-worker.php
+Restart=always
+RestartSec=3
+StandardOutput=append:/www/wwwroot/chatgo.ru/storage/logs/telegram-worker.log
+StandardError=append:/www/wwwroot/chatgo.ru/storage/logs/telegram-worker.error.log
+
+[Install]
+WantedBy=multi-user.target
