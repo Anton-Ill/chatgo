@@ -1,3 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/config/config.php';
+
+use Chatgo\Security\WebAppAuthenticator;
+
+// Обработка выхода из тестового режима
+if (isset($_GET['logout'])) {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        unset($_SESSION['chatgo_dev_auth']);
+    }
+    setcookie('chatgo_dev_key', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'httponly' => false,
+        'samesite' => 'Lax'
+    ]);
+    $targetUrl = isset($_SERVER['REQUEST_URI']) ? strtok($_SERVER['REQUEST_URI'], '?') : '/';
+    header('Location: ' . $targetUrl);
+    exit;
+}
+
+// Обработка входа по ?dev_key=...
+if (isset($_GET['dev_key'])) {
+    $devKey = trim((string) $_GET['dev_key']);
+    if ($devKey !== '' && hash_equals(CHATGO_SECRET, $devKey)) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['chatgo_dev_auth'] = true;
+        }
+        setcookie('chatgo_dev_key', $devKey, [
+            'expires' => time() + 86400 * 30, // 30 дней
+            'path' => '/',
+            'httponly' => false,
+            'samesite' => 'Lax'
+        ]);
+        $targetUrl = isset($_SERVER['REQUEST_URI']) ? strtok($_SERVER['REQUEST_URI'], '?') : '/';
+        header('Location: ' . $targetUrl);
+        exit;
+    }
+}
+
+$isDevMode = WebAppAuthenticator::isDevAuthorized();
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -938,6 +983,38 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(36, 161, 222, 0.4);
         }
+
+        .dev-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .dev-logout-btn {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            padding: 5px 9px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dev-logout-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #ffffff;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -954,8 +1031,18 @@
         <!-- Sidebar / Chat list -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h1 class="brand">Chatgo</h1>
-                <button class="settings-btn" onclick="toggleChannelsView()" title="Подключение каналов">⚙️</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h1 class="brand">Chatgo</h1>
+                    <?php if ($isDevMode): ?>
+                        <span class="dev-badge" title="Активен режим тестирования разработчика">Тест</span>
+                    <?php endif; ?>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <?php if ($isDevMode): ?>
+                        <button class="dev-logout-btn" onclick="logoutDevMode()" title="Выйти из тестового режима">Выход</button>
+                    <?php endif; ?>
+                    <button class="settings-btn" onclick="toggleChannelsView()" title="Подключение каналов">⚙️</button>
+                </div>
             </div>
             <div class="search-container">
                 <input type="text" class="search-input" id="search-input" placeholder="Поиск диалогов...">
@@ -1267,6 +1354,22 @@
         let pollingInterval = null;
         let notificationsPollingInterval = null;
 
+        function getCookie(name) {
+            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        const isDevModeActive = <?php echo $isDevMode ? 'true' : 'false'; ?>;
+        const activeDevKey = getCookie('chatgo_dev_key') || localStorage.getItem('chatgo_dev_key');
+        if (activeDevKey) {
+            localStorage.setItem('chatgo_dev_key', activeDevKey);
+        }
+
+        function logoutDevMode() {
+            localStorage.removeItem('chatgo_dev_key');
+            window.location.href = window.location.pathname + '?logout=1';
+        }
+
         // Вспомогательная функция для запросов с авторизацией WebApp
         async function tgFetch(url, options = {}) {
             if (!options.headers) {
@@ -1274,6 +1377,10 @@
             }
             if (tg && tg.initData) {
                 options.headers['X-TG-Init-Data'] = tg.initData;
+            }
+            const currentDevKey = getCookie('chatgo_dev_key') || localStorage.getItem('chatgo_dev_key');
+            if (currentDevKey) {
+                options.headers['X-Dev-Key'] = currentDevKey;
             }
             try {
                 const response = await fetch(url, options);
@@ -1299,7 +1406,7 @@
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             // Инициализация Telegram WebApp
-            if (tg) {
+            if (tg && tg.initData) {
                 tg.ready();
                 tg.expand();
                 

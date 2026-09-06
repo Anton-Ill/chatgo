@@ -7,10 +7,42 @@ use PDO;
 class WebAppAuthenticator
 {
     /**
+     * Проверяет, авторизован ли разработчик/тестировщик через секретный ключ CHATGO_SECRET.
+     */
+    public static function isDevAuthorized(): bool
+    {
+        $secret = defined('CHATGO_SECRET') ? (string) CHATGO_SECRET : '';
+        if ($secret === '') {
+            return false;
+        }
+
+        // Проверка флага сессии
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['chatgo_dev_auth'])) {
+            return true;
+        }
+
+        // Проверка ключа в заголовке, cookie, GET или POST
+        $key = $_SERVER['HTTP_X_DEV_KEY'] ?? $_COOKIE['chatgo_dev_key'] ?? $_GET['dev_key'] ?? $_POST['dev_key'] ?? '';
+        if ($key !== '' && hash_equals($secret, (string) $key)) {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                $_SESSION['chatgo_dev_auth'] = true;
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Выполняет проверку подписи initData и авторизацию оператора.
      */
     public static function authenticate(PDO $db): bool
     {
+        // 0. Проверка индивидуального тестового доступа по CHATGO_SECRET
+        if (self::isDevAuthorized()) {
+            return true;
+        }
+
         // 1. Получаем initData из заголовков или GET/POST параметров
         $initData = '';
         if (isset($_SERVER['HTTP_X_TG_INIT_DATA'])) {
