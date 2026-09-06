@@ -59,7 +59,17 @@ try {
     if (!$isMock) {
         if ($type === 'telegram') {
             $token = $settings['token'] ?? '';
-            if ($token !== '') {
+            $isPersonal = ($settings['account_type'] ?? '') === 'personal' || empty($token);
+
+            if ($isPersonal) {
+                $serviceUrl = defined('TELEGRAM_PERSONAL_SERVICE_URL') ? TELEGRAM_PERSONAL_SERVICE_URL : 'http://127.0.0.1:3005';
+                $ch = curl_init(rtrim($serviceUrl, '/') . '/api/logout');
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                curl_exec($ch);
+                curl_close($ch);
+            } elseif ($token !== '') {
                 $url = "https://api.telegram.org/bot{$token}/deleteWebhook";
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, $url);

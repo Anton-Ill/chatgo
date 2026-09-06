@@ -14,3 +14,9 @@ logs/
 сервер.txt
 Инфа о проекте.txt
 Скрины конкурентов/
+
+# Node.js зависимости и MTProto сессии
+node_modules/
+service-telegram/node_modules/
+service-telegram/session*.json
+service-telegram/*.log

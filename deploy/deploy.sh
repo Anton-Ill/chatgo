@@ -24,9 +24,24 @@ elif systemctl is-active --quiet php8.3-fpm; then
     systemctl reload php8.3-fpm
 fi
 
-echo "4. Restarting Telegram worker..."
+echo "4. Setting up Telegram Personal Gateway (Node.js)..."
+if [ -d "$PROJECT_DIR/service-telegram" ]; then
+    cd "$PROJECT_DIR/service-telegram"
+    npm install --omit=dev 2>/dev/null || true
+    cd "$PROJECT_DIR"
+fi
+
+if [ -f "$PROJECT_DIR/deploy/chatgo-telegram-personal.service" ]; then
+    cp "$PROJECT_DIR/deploy/chatgo-telegram-personal.service" /etc/systemd/system/chatgo-telegram-personal.service
+    systemctl daemon-reload
+    systemctl enable chatgo-telegram-personal
+    systemctl restart chatgo-telegram-personal
+fi
+
+# Отключаем старый bot long-polling воркер, если он активен
 if systemctl is-active --quiet chatgo-telegram; then
-    systemctl restart chatgo-telegram
+    systemctl stop chatgo-telegram
+    systemctl disable chatgo-telegram 2>/dev/null || true
 fi
 
 echo "=== Deployment finished successfully ==="

@@ -1,0 +1,22 @@
+[Unit]
+Description=Chatgo Telegram Personal MTProto Gateway (Node.js)
+After=network.target
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/chatgo.ru/service-telegram
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3005
+Environment=HOST=127.0.0.1
+Environment=CHATGO_WEBHOOK_URL=http://127.0.0.1/api/webhook/telegram_personal.php
+Environment=CHATGO_SECRET=CG_Secret_Gate_2026_Secure
+StandardOutput=append:/www/wwwroot/chatgo.ru/logs/telegram-personal.log
+StandardError=append:/www/wwwroot/chatgo.ru/logs/telegram-personal.error.log
+
+[Install]
+WantedBy=multi-user.target

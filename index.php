@@ -829,6 +829,115 @@
             margin-top: 16px;
             word-break: break-all;
         }
+
+        /* Telegram Personal Connect Modal & Cards */
+        .tg-connect-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 8px 0;
+        }
+        .tg-steps-list {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 18px 14px 34px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            width: 100%;
+        }
+        .tg-steps-list strong {
+            color: var(--text-primary);
+        }
+        .tg-qr-wrapper {
+            background: #ffffff;
+            padding: 14px;
+            border-radius: 18px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 14px;
+            width: 248px;
+            height: 248px;
+            position: relative;
+        }
+        .tg-qr-img {
+            width: 220px;
+            height: 220px;
+            display: block;
+            border-radius: 8px;
+        }
+        .tg-qr-spinner {
+            color: #3b82f6;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .tg-status-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 14px;
+            min-height: 20px;
+        }
+        .tg-switch-mode-btn {
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: opacity 0.2s ease;
+            margin-top: 8px;
+        }
+        .tg-switch-mode-btn:hover {
+            opacity: 0.8;
+        }
+        .tg-phone-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            text-align: left;
+        }
+        .tg-code-input {
+            letter-spacing: 6px;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .tg-success-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .btn-tg-connect {
+            background: linear-gradient(135deg, #24A1DE 0%, #1d82b4 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(36, 161, 222, 0.3);
+            transition: all 0.2s ease;
+            margin-bottom: 14px;
+            width: 100%;
+        }
+        .btn-tg-connect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(36, 161, 222, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -921,8 +1030,13 @@
                     </div>
                 </div>
 
+                <button class="btn-tg-connect" onclick="openTelegramConnectModal()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M21.5 2L2 9.5l7.5 3L17 6.5l-5.5 8.5v6l4-3.5 6 4.5 3-19.5z"/></svg>
+                    Подключить Telegram (личный)
+                </button>
+
                 <button class="add-channel-btn" onclick="openAddChannelModal()">
-                    <span>+</span> Подключить канал
+                    <span>+</span> Подключить другой канал
                 </button>
             </div>
         </div>
@@ -945,7 +1059,8 @@
                     <label for="channel-type">Тип канала</label>
                     <select class="form-control" id="channel-type" onchange="handleChannelTypeChange()" required>
                         <option value="" disabled selected>Выберите платформу...</option>
-                        <option value="telegram">Telegram Bot</option>
+                        <option value="telegram_personal">Telegram (Личный профиль: QR-код / Номер)</option>
+                        <option value="telegram">Telegram Bot (API токен)</option>
                         <option value="vk">VKontakte Group</option>
                         <option value="whatsapp">WhatsApp Business API (Meta)</option>
                         <option value="instagram">Instagram Direct (Meta)</option>
@@ -1039,6 +1154,109 @@
                     <button type="submit" class="btn-primary" id="modal-submit-btn">Подключить</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal for Connecting Personal Telegram (Umnico Style) -->
+    <div class="modal" id="telegram-connect-modal">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="tg-modal-title">Подключение Telegram</h3>
+                <button class="modal-close" onclick="closeTelegramConnectModal()">×</button>
+            </div>
+
+            <!-- View 1: QR-код (по умолчанию) -->
+            <div id="tg-view-qr" class="tg-connect-box">
+                <ol class="tg-steps-list">
+                    <li>Откройте <strong>Telegram</strong> со своего смартфона</li>
+                    <li>Перейдите в <strong>Настройки → Устройства → Подключить устройство</strong></li>
+                    <li>Наведите камеру телефона на экран, чтобы сканировать QR-код</li>
+                </ol>
+
+                <div class="tg-qr-wrapper">
+                    <div id="tg-qr-loading" class="tg-qr-spinner">
+                        <div style="font-size: 28px; animation: pulse 1s infinite;">⏳</div>
+                        <span>Генерация QR-кода...</span>
+                    </div>
+                    <img id="tg-qr-image" class="tg-qr-img" src="" alt="Telegram QR" style="display: none;">
+                </div>
+
+                <div id="tg-qr-status-text" class="tg-status-text">Ожидание сканирования...</div>
+
+                <button type="button" class="tg-switch-mode-btn" onclick="switchTgMode('phone')">
+                    Подключить по номеру телефона
+                </button>
+            </div>
+
+            <!-- View 2: Вход по номеру телефона -->
+            <div id="tg-view-phone" class="tg-connect-box" style="display: none;">
+                <div class="tg-phone-form">
+                    <div class="form-group">
+                        <label for="tg-phone-number">Номер телефона аккаунта</label>
+                        <input type="tel" class="form-control" id="tg-phone-number" placeholder="+7 999 123-45-67">
+                    </div>
+
+                    <button type="button" id="tg-btn-send-code" class="btn-primary" style="width: 100%;" onclick="sendTgPhoneCode()">
+                        Получить код
+                    </button>
+
+                    <!-- Блок ввода кода -->
+                    <div id="tg-code-block" style="display: none; margin-top: 10px;">
+                        <div class="form-group">
+                            <label for="tg-auth-code">Код подтверждения из Telegram</label>
+                            <input type="text" class="form-control tg-code-input" id="tg-auth-code" maxlength="6" placeholder="• • • • •">
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">
+                                Код отправлен в ваше приложение Telegram
+                            </span>
+                        </div>
+
+                        <!-- Блок 2FA облачного пароля -->
+                        <div id="tg-2fa-block" style="display: none;">
+                            <div class="form-group">
+                                <label for="tg-2fa-password">Облачный пароль двухфакторной аутентификации (2FA)</label>
+                                <input type="password" class="form-control" id="tg-2fa-password" placeholder="Введите ваш 2FA пароль">
+                            </div>
+                        </div>
+
+                        <button type="button" id="tg-btn-submit-code" class="btn-primary" style="width: 100%; margin-top: 8px;" onclick="submitTgPhoneCode()">
+                            Войти и подключить
+                        </button>
+                    </div>
+
+                    <div id="tg-phone-status-text" class="tg-status-text" style="margin-top: 6px;"></div>
+                </div>
+
+                <button type="button" class="tg-switch-mode-btn" onclick="switchTgMode('qr')">
+                    Подключить по QR-коду
+                </button>
+            </div>
+
+            <!-- View 3: 2FA облачный пароль для QR сессии -->
+            <div id="tg-view-2fa" class="tg-connect-box" style="display: none;">
+                <div class="tg-phone-form">
+                    <div class="form-group">
+                        <label for="tg-qr-2fa-password">Облачный пароль (2FA)</label>
+                        <input type="password" class="form-control" id="tg-qr-2fa-password" placeholder="Введите ваш 2FA пароль">
+                        <span style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; display: block;">
+                            Для этого аккаунта включена двухфакторная аутентификация. Введите облачный пароль для завершения подключения.
+                        </span>
+                    </div>
+                    <button type="button" class="btn-primary" style="width: 100%;" onclick="submitTgQrPassword()">
+                        Подтвердить пароль
+                    </button>
+                    <div id="tg-2fa-status-text" class="tg-status-text" style="margin-top: 6px;"></div>
+                </div>
+            </div>
+
+            <!-- View 4: Успешное подключение -->
+            <div id="tg-view-success" class="tg-connect-box" style="display: none;">
+                <div class="tg-success-icon">🎉</div>
+                <h4 style="font-size: 18px; margin-bottom: 8px;">Telegram успешно подключен!</h4>
+                <p id="tg-success-user-info" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;"></p>
+                <button type="button" class="btn-primary" style="width: 100%;" onclick="closeTelegramConnectModal()">
+                    Готово
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1301,9 +1519,290 @@
             loadChannels();
         }
 
+        // --- Управление подключением личного Telegram (GramJS MTProto) ---
+        let tgQrPollingInterval = null;
+        let tgPhoneCodeHash = '';
+
+        function openTelegramConnectModal() {
+            document.getElementById('telegram-connect-modal').style.display = 'flex';
+            switchTgMode('qr');
+        }
+
+        function closeTelegramConnectModal() {
+            if (tgQrPollingInterval) {
+                clearInterval(tgQrPollingInterval);
+                tgQrPollingInterval = null;
+            }
+            document.getElementById('telegram-connect-modal').style.display = 'none';
+            loadChannels();
+        }
+
+        function switchTgMode(mode) {
+            if (tgQrPollingInterval) {
+                clearInterval(tgQrPollingInterval);
+                tgQrPollingInterval = null;
+            }
+
+            document.getElementById('tg-view-qr').style.display = 'none';
+            document.getElementById('tg-view-phone').style.display = 'none';
+            document.getElementById('tg-view-2fa').style.display = 'none';
+            document.getElementById('tg-view-success').style.display = 'none';
+
+            if (mode === 'qr') {
+                document.getElementById('tg-view-qr').style.display = 'flex';
+                document.getElementById('tg-modal-title').innerText = 'Подключение Telegram';
+                startTgQrSession();
+            } else if (mode === 'phone') {
+                document.getElementById('tg-view-phone').style.display = 'flex';
+                document.getElementById('tg-modal-title').innerText = 'Вход по номеру телефона';
+                document.getElementById('tg-phone-status-text').innerText = '';
+            } else if (mode === '2fa') {
+                document.getElementById('tg-view-2fa').style.display = 'flex';
+                document.getElementById('tg-modal-title').innerText = 'Двухфакторная защита (2FA)';
+                document.getElementById('tg-2fa-status-text').innerText = '';
+            } else if (mode === 'success') {
+                document.getElementById('tg-view-success').style.display = 'flex';
+                document.getElementById('tg-modal-title').innerText = 'Успешно';
+            }
+        }
+
+        // Запуск сессии генерации QR-кода
+        async function startTgQrSession() {
+            const loading = document.getElementById('tg-qr-loading');
+            const img = document.getElementById('tg-qr-image');
+            const statusText = document.getElementById('tg-qr-status-text');
+
+            loading.style.display = 'flex';
+            img.style.display = 'none';
+            img.src = '';
+            statusText.innerText = 'Генерация QR-кода...';
+            statusText.style.color = 'var(--text-secondary)';
+
+            try {
+                const response = await tgFetch('/api/channels/telegram_personal.php?action=qr_start');
+                const data = await response.json();
+
+                if (!data.ok) {
+                    statusText.innerText = 'Ошибка: ' + (data.error || 'Не удалось запустить шлюз');
+                    statusText.style.color = '#ef4444';
+                    loading.style.display = 'none';
+                    return;
+                }
+
+                if (data.connected && data.user) {
+                    showTgSuccess(data.user);
+                    return;
+                }
+
+                if (data.qr_data_url) {
+                    img.src = data.qr_data_url;
+                    img.style.display = 'block';
+                    loading.style.display = 'none';
+                    statusText.innerText = 'Наведите камеру Telegram для сканирования';
+                    statusText.style.color = 'var(--text-secondary)';
+
+                    // Запуск опроса статуса сканирования
+                    if (tgQrPollingInterval) clearInterval(tgQrPollingInterval);
+                    tgQrPollingInterval = setInterval(checkTgQrStatus, 1500);
+                }
+            } catch (err) {
+                console.error("Ошибка при получении QR:", err);
+                statusText.innerText = 'Шлюз недоступен. Проверьте запуск службы service-telegram.';
+                statusText.style.color = '#ef4444';
+                loading.style.display = 'none';
+            }
+        }
+
+        // Опрос статуса QR авторизации
+        async function checkTgQrStatus() {
+            try {
+                const response = await tgFetch('/api/channels/telegram_personal.php?action=qr_status');
+                const data = await response.json();
+
+                if (!data.ok) return;
+
+                const statusText = document.getElementById('tg-qr-status-text');
+
+                if (data.connected && data.user) {
+                    if (tgQrPollingInterval) clearInterval(tgQrPollingInterval);
+                    showTgSuccess(data.user);
+                } else if (data.status === 'needs_2fa') {
+                    if (tgQrPollingInterval) clearInterval(tgQrPollingInterval);
+                    switchTgMode('2fa');
+                } else if (data.status === 'expired') {
+                    if (tgQrPollingInterval) clearInterval(tgQrPollingInterval);
+                    statusText.innerText = 'Срок действия QR-кода истек. Обновление...';
+                    setTimeout(startTgQrSession, 1000);
+                } else if (data.status === 'error') {
+                    if (tgQrPollingInterval) clearInterval(tgQrPollingInterval);
+                    statusText.innerText = 'Ошибка: ' + (data.error || 'Попробуйте снова');
+                    statusText.style.color = '#ef4444';
+                }
+            } catch (err) {
+                console.error("Ошибка опроса статуса QR:", err);
+            }
+        }
+
+        // Отправка пароля 2FA для QR сессии
+        async function submitTgQrPassword() {
+            const pwdInput = document.getElementById('tg-qr-2fa-password');
+            const statusText = document.getElementById('tg-2fa-status-text');
+            const pwd = pwdInput.value.trim();
+
+            if (!pwd) {
+                statusText.innerText = 'Введите облачный пароль';
+                statusText.style.color = '#ef4444';
+                return;
+            }
+
+            statusText.innerText = 'Проверка пароля...';
+            statusText.style.color = 'var(--text-secondary)';
+
+            try {
+                const response = await tgFetch('/api/channels/telegram_personal.php?action=password_submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    statusText.innerText = 'Пароль принят, завершение авторизации...';
+                    statusText.style.color = '#10b981';
+                    setTimeout(async () => {
+                        const check = await tgFetch('/api/channels/telegram_personal.php?action=status');
+                        const checkData = await check.json();
+                        if (checkData.connected && checkData.user) {
+                            showTgSuccess(checkData.user);
+                        }
+                    }, 1000);
+                } else {
+                    statusText.innerText = 'Ошибка: ' + (data.error || 'Неверный пароль');
+                    statusText.style.color = '#ef4444';
+                }
+            } catch (err) {
+                statusText.innerText = 'Сетевая ошибка при проверке пароля';
+                statusText.style.color = '#ef4444';
+            }
+        }
+
+        // Отправка кода на телефон
+        async function sendTgPhoneCode() {
+            const phoneInput = document.getElementById('tg-phone-number');
+            const statusText = document.getElementById('tg-phone-status-text');
+            const btn = document.getElementById('tg-btn-send-code');
+            const phone = phoneInput.value.trim();
+
+            if (!phone) {
+                statusText.innerText = 'Введите номер телефона';
+                statusText.style.color = '#ef4444';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Отправка кода...';
+            statusText.innerText = '';
+
+            try {
+                const response = await tgFetch('/api/channels/telegram_personal.php?action=phone_send_code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone })
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    tgPhoneCodeHash = data.phone_code_hash;
+                    document.getElementById('tg-code-block').style.display = 'block';
+                    btn.style.display = 'none';
+                    statusText.innerText = 'Код подтверждения успешно отправлен!';
+                    statusText.style.color = '#10b981';
+                    document.getElementById('tg-auth-code').focus();
+                } else {
+                    statusText.innerText = 'Ошибка: ' + (data.error || 'Не удалось отправить код');
+                    statusText.style.color = '#ef4444';
+                    btn.disabled = false;
+                    btn.innerText = 'Получить код';
+                }
+            } catch (err) {
+                console.error("Ошибка при отправке кода:", err);
+                statusText.innerText = 'Сетевая ошибка при отправке кода';
+                statusText.style.color = '#ef4444';
+                btn.disabled = false;
+                btn.innerText = 'Получить код';
+            }
+        }
+
+        // Ввод кода и завершение авторизации по телефону
+        async function submitTgPhoneCode() {
+            const phone = document.getElementById('tg-phone-number').value.trim();
+            const code = document.getElementById('tg-auth-code').value.trim();
+            const password = document.getElementById('tg-2fa-password').value.trim();
+            const statusText = document.getElementById('tg-phone-status-text');
+            const btn = document.getElementById('tg-btn-submit-code');
+
+            if (!code) {
+                statusText.innerText = 'Введите код подтверждения';
+                statusText.style.color = '#ef4444';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Проверка кода...';
+
+            try {
+                const response = await tgFetch('/api/channels/telegram_personal.php?action=phone_sign_in', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: phone,
+                        phone_code_hash: tgPhoneCodeHash,
+                        code: code,
+                        password: password
+                    })
+                });
+                const data = await response.json();
+
+                if (data.ok && data.connected && data.user) {
+                    showTgSuccess(data.user);
+                } else if (data.needs_2fa) {
+                    document.getElementById('tg-2fa-block').style.display = 'block';
+                    statusText.innerText = 'На аккаунте включена 2FA. Введите облачный пароль.';
+                    statusText.style.color = '#f59e0b';
+                    btn.disabled = false;
+                    btn.innerText = 'Войти с паролем 2FA';
+                    document.getElementById('tg-2fa-password').focus();
+                } else {
+                    statusText.innerText = 'Ошибка: ' + (data.error || 'Неверный код');
+                    statusText.style.color = '#ef4444';
+                    btn.disabled = false;
+                    btn.innerText = 'Войти и подключить';
+                }
+            } catch (err) {
+                statusText.innerText = 'Сетевая ошибка при авторизации';
+                statusText.style.color = '#ef4444';
+                btn.disabled = false;
+                btn.innerText = 'Войти и подключить';
+            }
+        }
+
+        // Экран успеха
+        function showTgSuccess(user) {
+            switchTgMode('success');
+            const info = document.getElementById('tg-success-user-info');
+            const usernameStr = user.username ? `@${user.username}` : (user.phone || `ID: ${user.id}`);
+            info.innerHTML = `Подключен профиль: <strong style="color: var(--text-primary);">${escapeHtml(user.fullName)}</strong> (${escapeHtml(usernameStr)})`;
+        }
+
         // Динамический показ полей при выборе платформы
         function handleChannelTypeChange() {
             const type = document.getElementById('channel-type').value;
+
+            if (type === 'telegram_personal') {
+                closeAddChannelModal();
+                openTelegramConnectModal();
+                return;
+            }
             
             // Прячем все блоки
             const fields = document.querySelectorAll('.channel-fields');

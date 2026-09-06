@@ -1,0 +1,14 @@
+{
+  "name": "chatgo-telegram-personal",
+  "version": "1.0.0",
+  "description": "Telegram MTProto personal account service for Chatgo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.3",
+    "telegram": "^2.22.2"
+  }
+}

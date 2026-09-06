@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/db.php';
 
 use Chatgo\Services\MessageService;
 use Chatgo\Adapters\TelegramAdapter;
+use Chatgo\Adapters\TelegramPersonalAdapter;
 use Chatgo\Adapters\VkAdapter;
 use Chatgo\Adapters\WhatsAppAdapter;
 use Chatgo\Adapters\InstagramAdapter;
@@ -64,12 +65,15 @@ try {
     $sent = false;
     if ($channelType === 'telegram') {
         $botToken = $settings['token'] ?? null;
-        if (!$botToken) {
-            throw new Exception("Токен бота не настроен для данного канала.");
+        $isPersonal = ($settings['account_type'] ?? '') === 'personal' || empty($botToken);
+
+        if ($isPersonal) {
+            $adapter = new TelegramPersonalAdapter(TELEGRAM_PERSONAL_SERVICE_URL, CHATGO_SECRET);
+            $sent = $adapter->sendMessage($clientExternalId, $text);
+        } else {
+            $adapter = new TelegramAdapter($botToken, TELEGRAM_API_URL, CHATGO_SECRET);
+            $sent = $adapter->sendMessage($clientExternalId, $text);
         }
-        
-        $adapter = new TelegramAdapter($botToken, TELEGRAM_API_URL, CHATGO_SECRET);
-        $sent = $adapter->sendMessage($clientExternalId, $text);
     } elseif ($channelType === 'vk') {
         $accessToken = $settings['access_token'] ?? null;
         if (!$accessToken) {
