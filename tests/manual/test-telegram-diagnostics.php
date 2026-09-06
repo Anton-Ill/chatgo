@@ -42,11 +42,11 @@ try {
     echo "  [OK] Токен бота: {$maskedToken}\n";
 
     // Проверка оператора в БД
-    $opStmt = $db->query("SELECT id, email, telegram_id, role FROM users WHERE telegram_id IS NOT NULL");
+    $opStmt = $db->query("SELECT id, email, telegram_id FROM users WHERE telegram_id IS NOT NULL");
     $operators = $opStmt->fetchAll();
     echo "  [INFO] Привязанные операторы:\n";
     foreach ($operators as $op) {
-        echo "    - User ID {$op['id']} ({$op['email']}): Telegram ID {$op['telegram_id']} (роль: {$op['role']})\n";
+        echo "    - User ID {$op['id']} ({$op['email']}): Telegram ID {$op['telegram_id']}\n";
     }
 
     // --- ШАГ 2: Проверка связи с Telegram API через прокси-шлюз ---
