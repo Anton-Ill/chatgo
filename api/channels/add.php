@@ -64,13 +64,16 @@ try {
             if ($token === '') {
                 throw new Exception("Токен бота обязателен.");
             }
-            // Проверка getMe
-            $url = "https://api.telegram.org/bot{$token}/getMe";
+            // Проверка getMe через шлюз
+            $url = rtrim(TELEGRAM_API_URL, '/') . '/bot' . $token . '/getMe';
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'X-Chatgo-Secret: ' . CHATGO_SECRET
+            ]);
             $res = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -185,12 +188,15 @@ try {
         if ($type === 'telegram') {
             $token = $settings['token'] ?? '';
             $webhookUrl = BASE_URL . '/api/webhook/telegram.php?channel_id=' . $channelId;
-            $url = "https://api.telegram.org/bot{$token}/setWebhook?url=" . urlencode($webhookUrl);
+            $url = rtrim(TELEGRAM_API_URL, '/') . '/bot' . $token . '/setWebhook?url=' . urlencode($webhookUrl);
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'X-Chatgo-Secret: ' . CHATGO_SECRET
+            ]);
             $res = curl_exec($ch);
             $resData = json_decode((string) $res, true);
             curl_close($ch);
