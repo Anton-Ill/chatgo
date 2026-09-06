@@ -30,18 +30,13 @@ try {
     $testClientName = 'Тестовый Клиент Модерации';
 
     // 2. Создание чата со статусом pending
-    $chat = $chatService->getOrCreateChat($channelId, $testClientId, $testClientName, 'pending');
-    $chatId = (int) $chat['id'];
-    echo "[OK] Чат создан/получен ID: {$chatId}, статус: {$chat['status']}\n";
-
-    if ($chat['status'] !== 'pending') {
-        throw new RuntimeException("Ожидался статус 'pending', но получен '{$chat['status']}'.");
-    }
+    $chatId = $chatService->getOrCreateChat($channelId, $testClientId, $testClientName, null, null, 'pending');
+    echo "[OK] Чат создан ID: {$chatId}\n";
 
     // 3. Проверка getChatById
-    $freshChat = $chatService->getChatById($chatId);
-    if (!$freshChat || $freshChat['status'] !== 'pending') {
-        throw new RuntimeException("Ошибка getChatById: статус не равен 'pending'.");
+    $chat = $chatService->getChatById($chatId);
+    if (!$chat || $chat['status'] !== 'pending') {
+        throw new RuntimeException("Ошибка: ожидался статус 'pending', получено: " . ($chat['status'] ?? 'null'));
     }
     echo "[OK] getChatById подтвердил статус 'pending'\n";
 
