@@ -25,7 +25,8 @@ class ChatService
         string $clientExternalId,
         string $clientName,
         ?string $clientPhone = null,
-        ?string $clientEmail = null
+        ?string $clientEmail = null,
+        string $initialStatus = 'new'
     ): int {
         $stmt = $this->db->prepare(
             'SELECT id FROM chats WHERE channel_id = ? AND client_external_id = ?'
@@ -40,14 +41,15 @@ class ChatService
         try {
             $stmt = $this->db->prepare(
                 'INSERT INTO chats (channel_id, client_external_id, client_name, client_phone, client_email, status, unread_count, created_at)
-                 VALUES (?, ?, ?, ?, ?, \'new\', 0, NOW())'
+                 VALUES (?, ?, ?, ?, ?, ?, 0, NOW())'
             );
             $stmt->execute([
                 $channelId,
                 $clientExternalId,
                 $clientName,
                 $clientPhone,
-                $clientEmail
+                $clientEmail,
+                $initialStatus
             ]);
             return (int) $this->db->lastInsertId();
         } catch (\PDOException $e) {
@@ -62,5 +64,25 @@ class ChatService
             }
             throw $e;
         }
+    }
+
+    /**
+     * Получить данные чата по ID.
+     */
+    public function getChatById(int $chatId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM chats WHERE id = ? LIMIT 1');
+        $stmt->execute([$chatId]);
+        $chat = $stmt->fetch();
+        return $chat ?: null;
+    }
+
+    /**
+     * Обновить статус чата (например, active, pending, rejected, archived).
+     */
+    public function updateStatus(int $chatId, string $status): bool
+    {
+        $stmt = $this->db->prepare('UPDATE chats SET status = ? WHERE id = ?');
+        return $stmt->execute([$status, $chatId]);
     }
 }

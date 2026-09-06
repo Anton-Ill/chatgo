@@ -877,6 +877,11 @@
                             </div>
                         </div>
                     </div>
+                    <div class="header-moderation" id="header-moderation" style="display: none; align-items: center; gap: 8px;">
+                        <span id="moderation-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">На модерации</span>
+                        <button type="button" id="btn-approve-chat" onclick="moderateCurrentChat('active')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">✅ Одобрить</button>
+                        <button type="button" id="btn-reject-chat" onclick="moderateCurrentChat('rejected')" style="background: #ef4444; color: white; border: none; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">❌ Отклонить</button>
+                    </div>
                 </div>
 
                 <div class="messages-container" id="messages-container">
@@ -1479,10 +1484,19 @@
                 const isActive = chat.id == currentChatId;
                 const initials = chat.client_name.slice(0, 2);
                 const hasUnread = chat.unread_count > 0;
+                const isPending = chat.status === 'pending';
+                const isRejected = chat.status === 'rejected';
                 
                 const timeStr = chat.last_message_at 
                     ? new Date(chat.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     : '';
+
+                let statusBadge = '';
+                if (isPending) {
+                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;">Заявка</span>';
+                } else if (isRejected) {
+                    statusBadge = '<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;">Отклонен</span>';
+                }
 
                 const item = document.createElement('div');
                 item.className = `chat-item ${isActive ? 'active' : ''}`;
@@ -1495,11 +1509,11 @@
                     </div>
                     <div class="chat-details">
                         <div class="chat-name-row">
-                            <span class="chat-name">${chat.client_name}</span>
+                            <span class="chat-name">${escapeHtml(chat.client_name)}${statusBadge}</span>
                             <span class="chat-time">${timeStr}</span>
                         </div>
                         <div class="chat-last-message-row">
-                            <span class="chat-last-message">${chat.last_message_text || 'Нет сообщений'}</span>
+                            <span class="chat-last-message">${escapeHtml(chat.last_message_text || 'Нет сообщений')}</span>
                             ${hasUnread ? `<span class="unread-badge">${chat.unread_count}</span>` : ''}
                         </div>
                     </div>
@@ -1529,6 +1543,37 @@
             document.getElementById('header-channel').innerText = channelType.charAt(0).toUpperCase() + channelType.slice(1);
             document.getElementById('header-avatar').innerText = clientName.slice(0, 2);
 
+            // Обновляем плашку модерации
+            const currentChat = chatsList.find(c => c.id == chatId);
+            const modContainer = document.getElementById('header-moderation');
+            const modBadge = document.getElementById('moderation-badge');
+            const btnApprove = document.getElementById('btn-approve-chat');
+            const btnReject = document.getElementById('btn-reject-chat');
+
+            if (currentChat && currentChat.status === 'pending') {
+                modContainer.style.display = 'flex';
+                modBadge.style.display = 'inline-block';
+                modBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+                modBadge.style.color = '#f59e0b';
+                modBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+                modBadge.innerText = 'На модерации';
+                btnApprove.style.display = 'inline-flex';
+                btnApprove.innerText = '✅ Одобрить';
+                btnReject.style.display = 'inline-flex';
+            } else if (currentChat && currentChat.status === 'rejected') {
+                modContainer.style.display = 'flex';
+                modBadge.style.display = 'inline-block';
+                modBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+                modBadge.style.color = '#ef4444';
+                modBadge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                modBadge.innerText = 'Отклонен';
+                btnApprove.style.display = 'inline-flex';
+                btnApprove.innerText = '✅ Возобновить';
+                btnReject.style.display = 'none';
+            } else {
+                modContainer.style.display = 'none';
+            }
+
             // Подсвечиваем активный чат в списке
             const items = document.querySelectorAll('.chat-item');
             items.forEach(item => item.classList.remove('active'));
@@ -1538,6 +1583,41 @@
             if (pollingInterval) clearInterval(pollingInterval);
             loadMessages();
             pollingInterval = setInterval(loadMessages, 2000);
+        }
+
+        // Модерация текущего чата (одобрение или отклонение)
+        async function moderateCurrentChat(newStatus) {
+            if (!currentChatId) return;
+            const confirmMsg = newStatus === 'active' 
+                ? 'Одобрить запрос клиента на диалог?' 
+                : 'Отклонить запрос клиента на диалог?';
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                const response = await tgFetch('/api/chats/update_status.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chat_id: currentChatId,
+                        status: newStatus
+                    })
+                });
+                const data = await response.json();
+                if (data.ok) {
+                    await loadChats();
+                    const updatedChat = chatsList.find(c => c.id == currentChatId);
+                    if (updatedChat) {
+                        selectChat(updatedChat.id, updatedChat.client_name, updatedChat.channel_type);
+                    }
+                } else {
+                    alert('Ошибка обновления статуса: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Ошибка при модерации чата:', err);
+                alert('Сетевая ошибка при изменении статуса чата');
+            }
         }
 
         // Загрузить историю сообщений с сервера

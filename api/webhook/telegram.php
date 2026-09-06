@@ -65,7 +65,74 @@ try {
         exit;
     }
 
-    // Перехватываем команду /start bind_ от оператора
+    // 1. Обработка callback_query (нажатия inline-кнопок оператором)
+    if ($parsed['type'] === 'callback_query') {
+        $callbackId = $parsed['callback_query_id'];
+        $operatorTgId = $parsed['client_external_id'];
+        $data = $parsed['data'];
+
+        // Проверка прав оператора
+        $isOperator = false;
+        $opStmt = $db->prepare('SELECT id FROM users WHERE telegram_id = ? LIMIT 1');
+        $opStmt->execute([$operatorTgId]);
+        if ($opStmt->fetchColumn() !== false || (defined('OPERATOR_TELEGRAM_ID') && $operatorTgId === (string) OPERATOR_TELEGRAM_ID)) {
+            $isOperator = true;
+        }
+
+        if (!$isOperator) {
+            $adapter->answerCallbackQuery($callbackId, 'У вас нет прав для этого действия', true);
+            echo json_encode(['ok' => false, 'description' => 'Недостаточно прав']);
+            exit;
+        }
+
+        if (str_starts_with($data, 'approve_')) {
+            $targetChatId = (int) substr($data, 8);
+            $targetChat = $chatService->getChatById($targetChatId);
+            if ($targetChat) {
+                $chatService->updateStatus($targetChatId, 'active');
+                $adapter->answerCallbackQuery($callbackId, 'Запрос одобрен');
+                $adapter->editMessageText(
+                    $parsed['chat_id'],
+                    $parsed['message_id'],
+                    "✅ Клиент {$targetChat['client_name']} одобрен оператором."
+                );
+                // Уведомляем клиента
+                $adapter->sendMessage(
+                    $targetChat['client_external_id'],
+                    "✅ Ваш запрос на диалог одобрен! Оператор на связи, вы можете писать сообщения."
+                );
+            }
+            echo json_encode(['ok' => true, 'description' => 'Клиент одобрен']);
+            exit;
+        }
+
+        if (str_starts_with($data, 'reject_')) {
+            $targetChatId = (int) substr($data, 7);
+            $targetChat = $chatService->getChatById($targetChatId);
+            if ($targetChat) {
+                $chatService->updateStatus($targetChatId, 'rejected');
+                $adapter->answerCallbackQuery($callbackId, 'Запрос отклонен');
+                $adapter->editMessageText(
+                    $parsed['chat_id'],
+                    $parsed['message_id'],
+                    "❌ Запрос от клиента {$targetChat['client_name']} отклонен."
+                );
+                // Уведомляем клиента
+                $adapter->sendMessage(
+                    $targetChat['client_external_id'],
+                    "К сожалению, ваш запрос отклонен администратором."
+                );
+            }
+            echo json_encode(['ok' => true, 'description' => 'Клиент отклонен']);
+            exit;
+        }
+
+        $adapter->answerCallbackQuery($callbackId);
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // 2. Перехватываем команду /start bind_ от оператора
     if (str_starts_with($parsed['text'], '/start bind_')) {
         $bindToken = substr($parsed['text'], 12);
         
@@ -103,11 +170,11 @@ try {
         exit;
     }
 
-    // Обработка команды /start
+    // 3. Обработка команды /start
     if (trim($parsed['text']) === '/start') {
-        $hasBoundOperator = (bool) $db->query("SELECT id FROM users WHERE telegram_id IS NOT NULL LIMIT 1")->fetchColumn();
+        $hasBoundOperator = (bool) $db->query('SELECT id FROM users WHERE telegram_id IS NOT NULL LIMIT 1')->fetchColumn();
         if (!$hasBoundOperator) {
-            $firstUserId = $db->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetchColumn();
+            $firstUserId = $db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn();
             if ($firstUserId) {
                 $stmtUpdate = $db->prepare('UPDATE users SET telegram_id = ? WHERE id = ?');
                 $stmtUpdate->execute([$parsed['client_external_id'], $firstUserId]);
@@ -132,11 +199,28 @@ try {
         }
     }
 
-    // Регистрируем/получаем чат
+    // 4. Проверяем существование чата с клиентом
+    $checkChatStmt = $db->prepare('SELECT id, status FROM chats WHERE channel_id = ? AND client_external_id = ? LIMIT 1');
+    $checkChatStmt->execute([$channelId, $parsed['client_external_id']]);
+    $existingChat = $checkChatStmt->fetch();
+
+    $isFirstMessage = ($existingChat === false);
+    $currentStatus = $existingChat ? $existingChat['status'] : 'pending';
+
+    // Если чат отклонен оператором — игнорируем
+    if ($currentStatus === 'rejected') {
+        echo json_encode(['ok' => true, 'description' => 'Сообщение отклоненного клиента проигнорировано']);
+        exit;
+    }
+
+    // Регистрируем/получаем чат (новые чаты создаются со статусом pending)
     $chatId = $chatService->getOrCreateChat(
         $channelId,
         $parsed['client_external_id'],
-        $parsed['client_name']
+        $parsed['client_name'],
+        null,
+        null,
+        'pending'
     );
 
     // Записываем входящее сообщение
@@ -149,16 +233,56 @@ try {
         $parsed['external_id']
     );
 
-    // Отправляем уведомление оператору, если ID настроен и сообщение пришло от клиента
-    if (defined('OPERATOR_TELEGRAM_ID') && OPERATOR_TELEGRAM_ID !== '' && $parsed['client_external_id'] !== OPERATOR_TELEGRAM_ID) {
-        $notifyText = "🔔 Новое сообщение от {$parsed['client_name']}:\n\"{$parsed['text']}\"";
-        $adapter->sendMessage(OPERATOR_TELEGRAM_ID, $notifyText);
+    // Получаем Telegram ID оператора для уведомления
+    $operatorTelegramId = $db->query('SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL LIMIT 1')->fetchColumn();
+    if (!$operatorTelegramId && defined('OPERATOR_TELEGRAM_ID')) {
+        $operatorTelegramId = OPERATOR_TELEGRAM_ID;
+    }
+
+    // Если чат на модерации (pending)
+    if ($isFirstMessage || $currentStatus === 'pending') {
+        if ($isFirstMessage) {
+            // Клиенту отправляем сообщение об ожидании подтверждения
+            $adapter->sendMessage(
+                $parsed['client_external_id'],
+                "Ваш запрос на диалог передан оператору. Пожалуйста, ожидайте подтверждения."
+            );
+        }
+
+        // Оператору отправляем запрос с кнопками «Одобрить» / «Отклонить»
+        if ($operatorTelegramId && (string) $parsed['client_external_id'] !== (string) $operatorTelegramId) {
+            $notifyText = "🔔 Новый запрос на диалог!\n"
+                . "От: {$parsed['client_name']} (ID: {$parsed['client_external_id']})\n"
+                . "Сообщение: \"{$parsed['text']}\"";
+
+            $inlineKeyboard = [
+                'inline_keyboard' => [
+                    [
+                        ['text' => '✅ Одобрить', 'callback_data' => "approve_{$chatId}"],
+                        ['text' => '❌ Отклонить', 'callback_data' => "reject_{$chatId}"]
+                    ]
+                ]
+            ];
+
+            $adapter->sendMessage(
+                (string) $operatorTelegramId,
+                $notifyText,
+                ['reply_markup' => $inlineKeyboard]
+            );
+        }
+    } elseif ($currentStatus === 'active') {
+        // Обычное сообщение от подтвержденного клиента
+        if ($operatorTelegramId && (string) $parsed['client_external_id'] !== (string) $operatorTelegramId) {
+            $notifyText = "💬 {$parsed['client_name']}:\n\"{$parsed['text']}\"";
+            $adapter->sendMessage((string) $operatorTelegramId, $notifyText);
+        }
     }
 
     echo json_encode([
         'ok' => true,
         'message_id' => $messageId,
-        'chat_id' => $chatId
+        'chat_id' => $chatId,
+        'status' => $currentStatus
     ]);
 
 } catch (Throwable $e) {
