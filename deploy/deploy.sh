@@ -11,8 +11,8 @@ git pull origin master
 
 echo "2. Setting permissions..."
 chown -R www:www "$PROJECT_DIR" 2>/dev/null || true
-find "$PROJECT_DIR" -type d -exec chmod 755 {} + 2>/dev/null || true
-find "$PROJECT_DIR" -type f -exec chmod 644 {} + 2>/dev/null || true
+find "$PROJECT_DIR" -not -path '*/.*' -not -path '*/node_modules*' -type d -exec chmod 755 {} + 2>/dev/null || true
+find "$PROJECT_DIR" -not -path '*/.*' -not -path '*/node_modules*' -type f -exec chmod 644 {} + 2>/dev/null || true
 mkdir -p "$PROJECT_DIR/logs"
 chmod 775 "$PROJECT_DIR/logs" 2>/dev/null || true
 chmod 600 "$PROJECT_DIR/.env" 2>/dev/null || true
@@ -27,7 +27,9 @@ fi
 echo "4. Setting up Telegram Personal Gateway (Node.js)..."
 if [ -d "$PROJECT_DIR/service-telegram" ]; then
     cd "$PROJECT_DIR/service-telegram"
-    npm install --omit=dev 2>/dev/null || true
+    if [ ! -d "node_modules" ] || [ package.json -nt node_modules ]; then
+        npm install --omit=dev 2>/dev/null || true
+    fi
     cd "$PROJECT_DIR"
 fi
 
