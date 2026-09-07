@@ -73,7 +73,12 @@ try {
                     $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
                     $firstUserId = (int) $db->lastInsertId();
                 } catch (Throwable $e) {
-                    $firstUserId = 1;
+                    try {
+                        $db->exec("INSERT INTO users (user_id, email, created_at) VALUES (1, 'admin@chatgo.ru', NOW())");
+                        $firstUserId = (int) $db->lastInsertId() ?: 1;
+                    } catch (Throwable $e2) {
+                        $firstUserId = 1;
+                    }
                 }
             }
 

@@ -13,12 +13,18 @@ try {
     $db = DB::getConnection();
     echo "=== Модификация колонок БД ===\n";
 
-    // 1. Делаем email в users необязательным (NULL)
+    // 1. Делаем email и user_id в users необязательным (NULL)
     try {
         $db->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
         echo "[OK] `users.email` изменен на NULL DEFAULT NULL\n";
     } catch (Throwable $e) {
         echo "[WARN] `users.email`: " . $e->getMessage() . "\n";
+    }
+    try {
+        $db->exec("ALTER TABLE `users` MODIFY `user_id` INT NULL DEFAULT NULL");
+        echo "[OK] `users.user_id` изменен на NULL DEFAULT NULL\n";
+    } catch (Throwable $e) {
+        echo "[INFO] `users.user_id`: " . $e->getMessage() . "\n";
     }
 
     // 2. Сбрасываем FK auth_tokens_ibfk_1 если существует
