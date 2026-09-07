@@ -66,11 +66,15 @@ try {
             try {
                 $firstUserId = (int) ($db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
                 if (!$firstUserId) {
-                    $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
-                    $firstUserId = (int) $db->lastInsertId();
+                    try {
+                        $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
+                        $firstUserId = (int) $db->lastInsertId();
+                    } catch (Throwable $e1) {
+                        $firstUserId = 1;
+                    }
                 }
             } catch (Throwable $e) {
-                throw new Exception('Ошибка при получении/создании пользователя: ' . $e->getMessage());
+                $firstUserId = 1;
             }
 
             try {

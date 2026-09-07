@@ -54,11 +54,12 @@ if (isset($_GET['dev_key'])) {
 
 $db = DB::getConnection();
 try {
+    @$db->exec("ALTER TABLE `users` MODIFY `user_id` INT NULL DEFAULT NULL");
+} catch (Throwable $e) {}
+try {
     @$db->exec("ALTER TABLE `auth_tokens` MODIFY `user_id` INT NULL DEFAULT NULL");
     @$db->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
-} catch (Throwable $e) {
-    // Ignore if already altered or no permission
-}
+} catch (Throwable $e) {}
 $currentUserId = WebAppAuthenticator::getAuthenticatedUserId($db);
 $isDevMode = WebAppAuthenticator::isDevAuthorized();
 ?>
