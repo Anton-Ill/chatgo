@@ -27,6 +27,12 @@ class DB
                     PDO::ATTR_EMULATE_PREPARES   => false,
                 ];
                 self::$instance = new PDO($dsn, DB_USER, DB_PASS, $options);
+                try {
+                    @self::$instance->exec("ALTER TABLE `auth_tokens` MODIFY `user_id` INT NULL DEFAULT NULL");
+                    @self::$instance->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
+                } catch (\Throwable $e) {
+                    // Ignore if already altered or no privileges
+                }
             } catch (PDOException $e) {
                 // В реальном продакшене лучше логировать ошибку, а не выводить на экран
                 die("Ошибка подключения к базе данных: " . $e->getMessage());
