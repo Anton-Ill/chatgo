@@ -57,6 +57,52 @@ class TelegramAdapter implements ChannelInterface
     }
 
     /**
+     * Установить кнопку меню бота (Menu Button / WebApp).
+     *
+     * @param string $webAppUrl URL веб-приложения (должен начинаться с https://)
+     * @param string $buttonText Текст кнопки (по умолчанию "Панель")
+     * @param string|null $chatId Опциональный chat_id для персональной настройки
+     * @return bool
+     */
+    public function setChatMenuButton(string $webAppUrl, string $buttonText = 'Панель', ?string $chatId = null): bool
+    {
+        $url = rtrim($this->apiUrl, '/') . '/bot' . $this->botToken . '/setChatMenuButton';
+
+        $payload = [
+            'menu_button' => [
+                'type' => 'web_app',
+                'text' => $buttonText,
+                'web_app' => [
+                    'url' => $webAppUrl
+                ]
+            ]
+        ];
+
+        if ($chatId !== null && $chatId !== '') {
+            $payload['chat_id'] = $chatId;
+        }
+
+        return $this->sendPostRequest($url, $payload);
+    }
+
+    /**
+     * Получить текущие настройки кнопки меню бота.
+     *
+     * @param string|null $chatId
+     * @return array|null
+     */
+    public function getChatMenuButton(?string $chatId = null): ?array
+    {
+        $url = rtrim($this->apiUrl, '/') . '/bot' . $this->botToken . '/getChatMenuButton';
+        $payload = [];
+        if ($chatId !== null && $chatId !== '') {
+            $payload['chat_id'] = $chatId;
+        }
+
+        return $this->sendPostRequestWithResult($url, $payload);
+    }
+
+    /**
      * Редактирование текста сообщения (например, после нажатия inline кнопки).
      */
     public function editMessageText(string $chatId, int $messageId, string $text, array $options = []): bool
