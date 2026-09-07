@@ -88,20 +88,15 @@ try {
             $parsed['external_id']
         );
 
-        // Отправляем уведомление оператору в Telegram, если ID настроен
-        if (defined('OPERATOR_TELEGRAM_ID') && OPERATOR_TELEGRAM_ID !== '') {
-            $tgStmt = $db->query("SELECT settings FROM channels WHERE type = 'telegram' LIMIT 1");
-            $tgChannel = $tgStmt->fetch();
-            if ($tgChannel) {
-                $tgSettings = json_decode($tgChannel['settings'] ?? '{}', true);
-                $tgToken = $tgSettings['token'] ?? null;
-                if ($tgToken) {
-                    $notifyText = "🔔 Новое сообщение из MAX от {$parsed['client_name']}:\n\"{$parsed['text']}\"";
-                    $tgAdapter = new TelegramAdapter($tgToken, TELEGRAM_API_URL, CHATGO_SECRET);
-                    $tgAdapter->sendMessage(OPERATOR_TELEGRAM_ID, $notifyText);
-                }
-            }
-        }
+        // Отправляем уведомление оператору в Telegram через единый NotificationService
+        $notificationService = new \Chatgo\Services\NotificationService($db);
+        $notificationService->notifyNewMessage(
+            $chatId,
+            $parsed['text'],
+            'max',
+            $parsed['client_name'],
+            ['client_external_id' => $parsed['client_external_id']]
+        );
     }
 
     // MAX API ожидает HTTP 200 для подтверждения получения

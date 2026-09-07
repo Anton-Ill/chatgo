@@ -8,6 +8,16 @@ let chatsList = [];
 let pollingInterval = null;
 let notificationsPollingInterval = null;
 
+// Авто-открытие чата по параметру ?chat_id=... или Telegram startapp=chat_...
+const urlParams = new URLSearchParams(window.location.search);
+let initialChatIdToOpen = urlParams.get('chat_id');
+if (!initialChatIdToOpen && tg?.initDataUnsafe?.start_param) {
+    const sp = String(tg.initDataUnsafe.start_param);
+    if (sp.startsWith('chat_')) {
+        initialChatIdToOpen = sp.substring(5);
+    }
+}
+
 function getCookie(name) {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? decodeURIComponent(match[2]) : null;
@@ -848,6 +858,15 @@ async function loadChats() {
         if (data.ok) {
             chatsList = data.chats;
             renderChats();
+
+            // Автоматическое открытие чата по переданному chat_id
+            if (initialChatIdToOpen) {
+                const target = chatsList.find(c => String(c.id) === String(initialChatIdToOpen));
+                if (target) {
+                    initialChatIdToOpen = null; // Сбрасываем, чтобы не сбивать навигацию пользователя
+                    selectChat(target.id, target.client_name, target.channel_type);
+                }
+            }
         }
     } catch (err) {
         console.error("Ошибка загрузки списка чатов:", err);

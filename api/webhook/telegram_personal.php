@@ -86,6 +86,18 @@ try {
         $externalId
     );
 
+    // 7. Уведомление оператора в Telegram при входящем сообщении
+    if ($direction === 'incoming') {
+        $notificationService = new \Chatgo\Services\NotificationService($db);
+        $notificationService->notifyNewMessage(
+            $chatId,
+            $text,
+            'telegram_personal',
+            $clientName,
+            ['client_external_id' => $clientExternalId]
+        );
+    }
+
     echo json_encode([
         'ok'         => true,
         'chat_id'    => $chatId,

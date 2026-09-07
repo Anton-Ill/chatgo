@@ -33,6 +33,30 @@ class TelegramAdapter implements ChannelInterface
     }
 
     /**
+     * Отправка сообщения клиенту с возвратом полного ответа Telegram API (включая message_id).
+     *
+     * @param string $clientExternalId
+     * @param string $text
+     * @param array $options
+     * @return array|null
+     */
+    public function sendMessageWithResult(string $clientExternalId, string $text, array $options = []): ?array
+    {
+        $url = rtrim($this->apiUrl, '/') . '/bot' . $this->botToken . '/sendMessage';
+
+        $payload = [
+            'chat_id' => $clientExternalId,
+            'text'    => $text,
+        ];
+
+        if (isset($options['reply_markup'])) {
+            $payload['reply_markup'] = $options['reply_markup'];
+        }
+
+        return $this->sendPostRequestWithResult($url, $payload);
+    }
+
+    /**
      * Редактирование текста сообщения (например, после нажатия inline кнопки).
      */
     public function editMessageText(string $chatId, int $messageId, string $text, array $options = []): bool
@@ -129,9 +153,9 @@ class TelegramAdapter implements ChannelInterface
     }
 
     /**
-     * Выполнение POST запроса к Telegram API через прокси-шлюз.
+     * Выполнение POST запроса к Telegram API через прокси-шлюз с возвратом массива ответа.
      */
-    private function sendPostRequest(string $url, array $payload): bool
+    private function sendPostRequestWithResult(string $url, array $payload): ?array
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -150,11 +174,19 @@ class TelegramAdapter implements ChannelInterface
         curl_close($ch);
 
         if ($response === false || $httpCode !== 200) {
-            return false;
+            return null;
         }
 
         $result = json_decode((string) $response, true);
-        return isset($result['ok']) && $result['ok'] === true;
+        return (isset($result['ok']) && $result['ok'] === true) ? $result : null;
+    }
+
+    /**
+     * Выполнение POST запроса к Telegram API через прокси-шлюз.
+     */
+    private function sendPostRequest(string $url, array $payload): bool
+    {
+        return $this->sendPostRequestWithResult($url, $payload) !== null;
     }
 
     /**
@@ -201,12 +233,24 @@ class TelegramAdapter implements ChannelInterface
             $clientName = $from['username'] ?? 'Telegram Client';
         }
 
+        // Проверяем цитирование/ответ на сообщение (reply_to_message)
+        $replyToMessage = null;
+        if (!empty($message['reply_to_message'])) {
+            $reply = $message['reply_to_message'];
+            $replyToMessage = [
+                'message_id' => (int) ($reply['message_id'] ?? 0),
+                'text'       => (string) ($reply['text'] ?? ''),
+                'from_id'    => (string) ($reply['from']['id'] ?? ''),
+            ];
+        }
+
         return [
             'type'               => 'text',
             'external_id'        => (string) $message['message_id'],
             'client_external_id' => (string) $chat['id'],
             'client_name'        => $clientName,
-            'text'               => $message['text']
+            'text'               => $message['text'],
+            'reply_to_message'   => $replyToMessage
         ];
     }
 }

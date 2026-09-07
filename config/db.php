@@ -36,6 +36,16 @@ class DB
                 try {
                     @self::$instance->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
                 } catch (\Throwable $e) {}
+                try {
+                    @self::$instance->exec("CREATE TABLE IF NOT EXISTS `bot_notifications` (
+                      `bot_message_id` BIGINT NOT NULL,
+                      `operator_telegram_id` VARCHAR(50) NOT NULL,
+                      `chat_id` INT NOT NULL,
+                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      PRIMARY KEY (`bot_message_id`, `operator_telegram_id`),
+                      KEY `idx_chat_id` (`chat_id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                } catch (\Throwable $e) {}
             } catch (PDOException $e) {
                 // В реальном продакшене лучше логировать ошибку, а не выводить на экран
                 die("Ошибка подключения к базе данных: " . $e->getMessage());
