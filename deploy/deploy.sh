@@ -53,7 +53,12 @@ if systemctl is-active --quiet chatgo-telegram; then
     systemctl disable chatgo-telegram 2>/dev/null || true
 fi
 
-echo "5. Cleaning up test database records..."
+echo "5. Updating DB schema column definitions..."
+if [ -f "$PROJECT_DIR/tests/manual/fix_db_schema.php" ]; then
+    php "$PROJECT_DIR/tests/manual/fix_db_schema.php" || true
+fi
+
+echo "6. Cleaning up test database records..."
 if [ -f "$PROJECT_DIR/tests/manual/test-cleanup-data.php" ]; then
     php "$PROJECT_DIR/tests/manual/test-cleanup-data.php" || true
 fi
