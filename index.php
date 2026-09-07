@@ -7,6 +7,16 @@ require_once __DIR__ . '/config/db.php';
 
 use Chatgo\Security\WebAppAuthenticator;
 
+// 0. Роутинг для /api/... если Nginx перенаправляет все запросы в index.php
+$requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+if (is_string($requestUri) && str_starts_with($requestUri, '/api/')) {
+    $targetFile = __DIR__ . $requestUri;
+    if (file_exists($targetFile) && is_file($targetFile)) {
+        require $targetFile;
+        exit;
+    }
+}
+
 // Обработка выхода из тестового режима
 if (isset($_GET['logout'])) {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -43,6 +53,12 @@ if (isset($_GET['dev_key'])) {
 }
 
 $db = DB::getConnection();
+try {
+    @$db->exec("ALTER TABLE `auth_tokens` MODIFY `user_id` INT NULL DEFAULT NULL");
+    @$db->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
+} catch (Throwable $e) {
+    // Ignore if already altered or no permission
+}
 $currentUserId = WebAppAuthenticator::getAuthenticatedUserId($db);
 $isDevMode = WebAppAuthenticator::isDevAuthorized();
 ?>
