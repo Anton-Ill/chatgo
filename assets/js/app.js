@@ -51,6 +51,8 @@ async function tgFetch(url, options = {}) {
     }
     if (tg && tg.initData) {
         options.headers['X-TG-Init-Data'] = tg.initData;
+        const separator = url.includes('?') ? '&' : '?';
+        url = `${url}${separator}tg_init_data=${encodeURIComponent(tg.initData)}`;
     }
     const currentDevKey = getCookie('chatgo_dev_key') || localStorage.getItem('chatgo_dev_key');
     if (currentDevKey) {

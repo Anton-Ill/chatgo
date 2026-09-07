@@ -59,6 +59,9 @@ try {
 try {
     @$db->exec("ALTER TABLE `auth_tokens` MODIFY `user_id` INT NULL DEFAULT NULL");
     @$db->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
+    @$db->exec("ALTER TABLE `users` ADD COLUMN `telegram_id` VARCHAR(50) NULL");
+    @$db->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(255) NULL");
+    @$db->exec("ALTER TABLE `users` ADD COLUMN `first_name` VARCHAR(255) NULL");
 } catch (Throwable $e) {}
 $currentUserId = WebAppAuthenticator::getAuthenticatedUserId($db);
 $isDevMode = WebAppAuthenticator::isDevAuthorized();

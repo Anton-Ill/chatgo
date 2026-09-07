@@ -89,6 +89,24 @@ class WebAppAuthenticator
             $botToken = defined('TELEGRAM_BOT_TOKEN') ? (string) TELEGRAM_BOT_TOKEN : '';
 
             $userData = self::verify($initData, $botToken);
+
+            // Fallback: если токен системного бота не задан или не подошел, проверяем токены каналов
+            if (!$userData) {
+                try {
+                    $channelsStmt = $db->query("SELECT settings FROM channels WHERE type = 'telegram'");
+                    while ($row = $channelsStmt->fetch()) {
+                        $settings = json_decode($row['settings'] ?? '{}', true);
+                        $channelToken = $settings['token'] ?? '';
+                        if (!empty($channelToken) && $channelToken !== $botToken) {
+                            $userData = self::verify($initData, $channelToken);
+                            if ($userData) {
+                                break;
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {}
+            }
+
             if ($userData && !empty($userData['id'])) {
                 $uid = self::findOrCreateUserByTelegram($db, $userData);
                 if (session_status() === PHP_SESSION_ACTIVE) {
@@ -119,6 +137,13 @@ class WebAppAuthenticator
      */
     public static function findOrCreateUserByTelegram(PDO $db, array $tgUser): int
     {
+        // Авто-миграция структуры таблицы users
+        try {
+            @$db->exec("ALTER TABLE `users` ADD COLUMN `telegram_id` VARCHAR(50) NULL");
+            @$db->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(255) NULL");
+            @$db->exec("ALTER TABLE `users` ADD COLUMN `first_name` VARCHAR(255) NULL");
+        } catch (\Throwable $e) {}
+
         $tgUserId = (string) ($tgUser['id'] ?? '');
         $username = !empty($tgUser['username']) ? (string) $tgUser['username'] : null;
         $firstName = !empty($tgUser['first_name']) ? (string) $tgUser['first_name'] : null;

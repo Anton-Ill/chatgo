@@ -37,6 +37,15 @@ class DB
                     @self::$instance->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
                 } catch (\Throwable $e) {}
                 try {
+                    @self::$instance->exec("ALTER TABLE `users` ADD COLUMN `telegram_id` VARCHAR(50) NULL");
+                } catch (\Throwable $e) {}
+                try {
+                    @self::$instance->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(255) NULL");
+                } catch (\Throwable $e) {}
+                try {
+                    @self::$instance->exec("ALTER TABLE `users` ADD COLUMN `first_name` VARCHAR(255) NULL");
+                } catch (\Throwable $e) {}
+                try {
                     @self::$instance->exec("CREATE TABLE IF NOT EXISTS `bot_notifications` (
                       `bot_message_id` BIGINT NOT NULL,
                       `operator_telegram_id` VARCHAR(50) NOT NULL,

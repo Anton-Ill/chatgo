@@ -22,17 +22,16 @@ $envFile = dirname(__DIR__) . '/.env';
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
+        $trimmed = trim($line);
+        if ($trimmed === '' || str_starts_with($trimmed, '#') || !str_contains($trimmed, '=')) {
             continue;
         }
-        list($name, $value) = explode('=', $line, 2);
+        list($name, $value) = explode('=', $trimmed, 2);
         $name = trim($name);
-        $value = trim($value);
-        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-            putenv("{$name}={$value}");
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
+        $value = trim($value, " \t\n\r\0\x0B\"'");
+        putenv("{$name}={$value}");
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
     }
 }
 
@@ -49,30 +48,14 @@ try {
     $rawPdo->exec("ALTER TABLE `auth_tokens` MODIFY `user_id` INT NULL DEFAULT NULL");
     $rawPdo->exec("ALTER TABLE `channels` MODIFY `user_id` INT NULL DEFAULT NULL");
     $rawPdo->exec("ALTER TABLE `users` MODIFY `email` VARCHAR(255) NULL DEFAULT NULL");
+    $rawPdo->exec("ALTER TABLE `users` ADD COLUMN `telegram_id` VARCHAR(50) NULL");
+    $rawPdo->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(255) NULL");
+    $rawPdo->exec("ALTER TABLE `users` ADD COLUMN `first_name` VARCHAR(255) NULL");
 } catch (Throwable $e) {}
 
 // Запуск сессии, если она не запущена
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-}
-
-// Загрузка переменных окружения из .env
-$envFile = dirname(__DIR__) . '/.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-            putenv("{$name}={$value}");
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
 }
 
 // Константы базы данных
@@ -86,8 +69,8 @@ define('TELEGRAM_API_URL', getenv('TELEGRAM_API_URL') ?: 'https://client.chatgo.
 define('TELEGRAM_PERSONAL_SERVICE_URL', getenv('TELEGRAM_PERSONAL_SERVICE_URL') ?: 'http://127.0.0.1:3005');
 define('CHATGO_SECRET', getenv('CHATGO_SECRET') ?: 'CG_Secret_Gate_2026_Secure');
 define('OPERATOR_TELEGRAM_ID', getenv('OPERATOR_TELEGRAM_ID') ?: '');
-define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: '');
-define('TELEGRAM_BOT_USERNAME', getenv('TELEGRAM_BOT_USERNAME') ?: 'chatgoservice_bot');
+define('TELEGRAM_BOT_TOKEN', trim($_ENV['TELEGRAM_BOT_TOKEN'] ?? $_SERVER['TELEGRAM_BOT_TOKEN'] ?? getenv('TELEGRAM_BOT_TOKEN') ?: ''));
+define('TELEGRAM_BOT_USERNAME', trim($_ENV['TELEGRAM_BOT_USERNAME'] ?? $_SERVER['TELEGRAM_BOT_USERNAME'] ?? getenv('TELEGRAM_BOT_USERNAME') ?: 'chatgoservice_bot'));
 define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/01_Chatgo');
 
 
