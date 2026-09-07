@@ -146,6 +146,9 @@ try {
     foreach ($tables as $t) {
         $cnt = (int) $db->query("SELECT COUNT(*) FROM `{$t}`")->fetchColumn();
         ok("Таблица `{$t}` существует ({$cnt} записей)");
+        $cols = $db->query("SHOW COLUMNS FROM `{$t}`")->fetchAll();
+        $colNames = array_column($cols, 'Field');
+        info("  Колонки `{$t}`: " . implode(', ', $colNames));
     }
 } catch (Throwable $e) {
     fail("БД недоступна: " . $e->getMessage());
