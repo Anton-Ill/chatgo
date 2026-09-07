@@ -63,17 +63,25 @@ try {
             $token = bin2hex(random_bytes(16));
             $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 минут
 
-            $firstUserId = (int) ($db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
-            if (!$firstUserId) {
-                $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
-                $firstUserId = (int) $db->lastInsertId();
+            try {
+                $firstUserId = (int) ($db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
+                if (!$firstUserId) {
+                    $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
+                    $firstUserId = (int) $db->lastInsertId();
+                }
+            } catch (Throwable $e) {
+                throw new Exception('Ошибка при получении/создании пользователя: ' . $e->getMessage());
             }
 
-            $stmtToken = $db->prepare('
-                INSERT INTO auth_tokens (user_id, token, expires_at, used)
-                VALUES (?, ?, ?, 0)
-            ');
-            $stmtToken->execute([$firstUserId, $token, $expiresAt]);
+            try {
+                $stmtToken = $db->prepare('
+                    INSERT INTO auth_tokens (user_id, token, expires_at, used)
+                    VALUES (?, ?, ?, 0)
+                ');
+                $stmtToken->execute([$firstUserId, $token, $expiresAt]);
+            } catch (Throwable $e) {
+                throw new Exception("Ошибка записи в auth_tokens [user_id={$firstUserId}]: " . $e->getMessage());
+            }
 
             $botUrl = "https://t.me/{$botUsername}?start=auth_{$token}";
 
