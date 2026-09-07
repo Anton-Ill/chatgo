@@ -63,11 +63,17 @@ try {
             $token = bin2hex(random_bytes(16));
             $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 минут
 
+            $firstUserId = (int) ($db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
+            if (!$firstUserId) {
+                $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
+                $firstUserId = (int) $db->lastInsertId();
+            }
+
             $stmtToken = $db->prepare('
-                INSERT INTO auth_tokens (token, expires_at, used)
-                VALUES (?, ?, 0)
+                INSERT INTO auth_tokens (user_id, token, expires_at, used)
+                VALUES (?, ?, ?, 0)
             ');
-            $stmtToken->execute([$token, $expiresAt]);
+            $stmtToken->execute([$firstUserId, $token, $expiresAt]);
 
             $botUrl = "https://t.me/{$botUsername}?start=auth_{$token}";
 
