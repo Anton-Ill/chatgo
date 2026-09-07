@@ -7,6 +7,10 @@ declare(strict_types=1);
  * Path: tests/manual/test-webapp-sso.php
  */
 
+if (!getenv('TELEGRAM_BOT_TOKEN')) {
+    putenv('TELEGRAM_BOT_TOKEN=123456789:MOCK_TEST_BOT_TOKEN_FOR_SSO');
+}
+
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../src/Security/WebAppAuthenticator.php';
 
@@ -57,8 +61,7 @@ $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', date
 $adminId = (int) $db->lastInsertId();
 assertCondition($adminId === 1, "Создан начальный аккаунт администратора с ID: {$adminId}", $passed, $failed);
 
-// 2. Тестируем криптографическую валидацию подписи Telegram WebApp
-$botToken = '8530564668:AAH2PqpJpVHnWSSws4KacbV1S2YDNP1GeQg';
+$botToken = (string) (defined('TELEGRAM_BOT_TOKEN') && TELEGRAM_BOT_TOKEN !== '' ? TELEGRAM_BOT_TOKEN : '123456789:MOCK_TEST_BOT_TOKEN_FOR_SSO');
 $antonTgId = '11223344';
 $antonUserJson = json_encode([
     'id' => (int) $antonTgId,

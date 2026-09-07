@@ -86,9 +86,7 @@ class WebAppAuthenticator
         // 4. Проверка криптографической подписи initData из Telegram WebApp
         $initData = $_SERVER['HTTP_X_TG_INIT_DATA'] ?? $_GET['tg_init_data'] ?? $_POST['tg_init_data'] ?? '';
         if ($initData !== '') {
-            $botToken = defined('TELEGRAM_BOT_TOKEN') && TELEGRAM_BOT_TOKEN !== ''
-                ? (string) TELEGRAM_BOT_TOKEN
-                : '8530564668:AAH2PqpJpVHnWSSws4KacbV1S2YDNP1GeQg';
+            $botToken = defined('TELEGRAM_BOT_TOKEN') ? (string) TELEGRAM_BOT_TOKEN : '';
 
             $userData = self::verify($initData, $botToken);
             if ($userData && !empty($userData['id'])) {
