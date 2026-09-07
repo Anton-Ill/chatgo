@@ -86,25 +86,17 @@ class WebAppAuthenticator
         // 4. Проверка криптографической подписи initData из Telegram WebApp
         $initData = $_SERVER['HTTP_X_TG_INIT_DATA'] ?? $_GET['tg_init_data'] ?? $_POST['tg_init_data'] ?? '';
         if ($initData !== '') {
-            $botToken = defined('TELEGRAM_BOT_TOKEN') && TELEGRAM_BOT_TOKEN !== '' ? (string) TELEGRAM_BOT_TOKEN : '';
-            if ($botToken === '') {
-                $stmt = $db->query("SELECT settings FROM channels WHERE type = 'telegram' LIMIT 1");
-                $channel = $stmt->fetch();
-                if ($channel) {
-                    $settings = json_decode($channel['settings'] ?? '{}', true);
-                    $botToken = $settings['token'] ?? '';
-                }
-            }
+            $botToken = defined('TELEGRAM_BOT_TOKEN') && TELEGRAM_BOT_TOKEN !== ''
+                ? (string) TELEGRAM_BOT_TOKEN
+                : '8530564668:AAH2PqpJpVHnWSSws4KacbV1S2YDNP1GeQg';
 
-            if ($botToken !== '') {
-                $userData = self::verify($initData, $botToken);
-                if ($userData && !empty($userData['id'])) {
-                    $uid = self::findOrCreateUserByTelegram($db, $userData);
-                    if (session_status() === PHP_SESSION_ACTIVE) {
-                        $_SESSION['chatgo_user_id'] = $uid;
-                    }
-                    return $uid;
+            $userData = self::verify($initData, $botToken);
+            if ($userData && !empty($userData['id'])) {
+                $uid = self::findOrCreateUserByTelegram($db, $userData);
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    $_SESSION['chatgo_user_id'] = $uid;
                 }
+                return $uid;
             }
         }
 
@@ -133,6 +125,7 @@ class WebAppAuthenticator
         $username = !empty($tgUser['username']) ? (string) $tgUser['username'] : null;
         $firstName = !empty($tgUser['first_name']) ? (string) $tgUser['first_name'] : null;
 
+        // 1. Поиск по существующему telegram_id
         $stmt = $db->prepare('SELECT id FROM users WHERE telegram_id = ? LIMIT 1');
         $stmt->execute([$tgUserId]);
         $existingId = $stmt->fetchColumn();
@@ -148,11 +141,25 @@ class WebAppAuthenticator
             return $uid;
         }
 
+        // 2. Если у главного администратора еще не привязан telegram_id (первый вход владельца)
+        $firstUser = $db->query('SELECT id, telegram_id FROM users ORDER BY id ASC LIMIT 1')->fetch();
+        if ($firstUser && empty($firstUser['telegram_id'])) {
+            $uid = (int) $firstUser['id'];
+            $bindStmt = $db->prepare('
+                UPDATE users 
+                SET telegram_id = ?, username = COALESCE(?, username), first_name = COALESCE(?, first_name)
+                WHERE id = ?
+            ');
+            $bindStmt->execute([$tgUserId, $username, $firstName, $uid]);
+            return $uid;
+        }
+
+        // 3. Для новых клиентов сервиса — создаем отдельный изолированный аккаунт
         $insertStmt = $db->prepare('
             INSERT INTO users (telegram_id, username, first_name, created_at)
-            VALUES (?, ?, ?, NOW())
+            VALUES (?, ?, ?, ?)
         ');
-        $insertStmt->execute([$tgUserId, $username, $firstName]);
+        $insertStmt->execute([$tgUserId, $username, $firstName, date('Y-m-d H:i:s')]);
         return (int) $db->lastInsertId();
     }
 
@@ -180,8 +187,8 @@ class WebAppAuthenticator
         $hash = $params['hash'];
         unset($params['hash']);
 
-        // Сортируем параметры по алфавиту
-        ksort($params);
+        // Сортируем параметры по алфавиту (строковая сортировка)
+        ksort($params, SORT_STRING);
 
         // Формируем проверочную строку
         $dataCheckArr = [];

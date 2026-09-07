@@ -17,6 +17,16 @@ mkdir -p "$PROJECT_DIR/logs"
 chmod 775 "$PROJECT_DIR/logs" 2>/dev/null || true
 chmod 600 "$PROJECT_DIR/.env" 2>/dev/null || true
 
+# Актуализация системного бота в .env
+if [ -f "$PROJECT_DIR/.env" ]; then
+    if ! grep -q "^TELEGRAM_BOT_TOKEN=" "$PROJECT_DIR/.env"; then
+        echo "TELEGRAM_BOT_TOKEN=8530564668:AAH2PqpJpVHnWSSws4KacbV1S2YDNP1GeQg" >> "$PROJECT_DIR/.env"
+    fi
+    if ! grep -q "^TELEGRAM_BOT_USERNAME=" "$PROJECT_DIR/.env"; then
+        echo "TELEGRAM_BOT_USERNAME=chatgoservice_bot" >> "$PROJECT_DIR/.env"
+    fi
+fi
+
 echo "3. Reloading PHP-FPM..."
 if systemctl is-active --quiet php-fpm-83; then
     systemctl reload php-fpm-83

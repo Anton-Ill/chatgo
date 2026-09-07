@@ -64,7 +64,10 @@ async function tgFetch(url, options = {}) {
         try {
             const data = await clone.json();
             if (data && data.ok === false && data.error === 'Доступ запрещен: Не авторизован') {
-                document.getElementById('auth-overlay').style.display = 'flex';
+                if (!tg?.initData && !document.documentElement.classList.contains('in-telegram-webapp')) {
+                    const authOverlay = document.getElementById('auth-overlay');
+                    if (authOverlay) authOverlay.style.display = 'flex';
+                }
                 if (pollingInterval) clearInterval(pollingInterval);
             }
         } catch (e) {
@@ -78,16 +81,25 @@ async function tgFetch(url, options = {}) {
 }
 
 async function checkAuthStatus() {
+    const tmaLoader = document.getElementById('tma-loading-overlay');
     try {
         const res = await tgFetch('/api/auth/session.php?action=status');
         const data = await res.json();
         if (data.ok && data.authenticated) {
             const authOverlay = document.getElementById('auth-overlay');
             if (authOverlay) authOverlay.style.display = 'none';
+            if (tmaLoader) tmaLoader.style.display = 'none';
             return true;
+        } else {
+            if (tmaLoader) tmaLoader.style.display = 'none';
+            if (!tg?.initData && !document.documentElement.classList.contains('in-telegram-webapp')) {
+                const authOverlay = document.getElementById('auth-overlay');
+                if (authOverlay) authOverlay.style.display = 'flex';
+            }
         }
     } catch (e) {
         console.error('Ошибка проверки статуса авторизации:', e);
+        if (tmaLoader) tmaLoader.style.display = 'none';
     }
     return false;
 }

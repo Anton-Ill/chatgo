@@ -73,10 +73,33 @@ $isDevMode = WebAppAuthenticator::isDevAuthorized();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Немедленно определяем запуск внутри Telegram Mini App до отрисовки оверлея
+        if (window.Telegram?.WebApp?.initData || window.location.hash.includes('tgWebAppData')) {
+            document.documentElement.classList.add('in-telegram-webapp');
+        }
+    </script>
     <link rel="stylesheet" href="assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
+    <style>
+        html.in-telegram-webapp #auth-overlay {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-    <!-- Login / Auth Overlay -->
+    <!-- TMA Loading Overlay (отображается только при загрузке в Telegram) -->
+    <div id="tma-loading-overlay" style="display: none; position: fixed; inset: 0; background: #0b111e; z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 14px;">
+        <div style="font-size: 32px; animation: pulse 1s infinite;">💬</div>
+        <div style="font-size: 15px; font-weight: 500; color: #f8fafc; font-family: 'Inter', sans-serif;">Вход в Chatgo...</div>
+    </div>
+    <script>
+        if (document.documentElement.classList.contains('in-telegram-webapp')) {
+            var tmaLoader = document.getElementById('tma-loading-overlay');
+            if (tmaLoader) tmaLoader.style.display = 'flex';
+        }
+    </script>
+
+    <!-- Login / Auth Overlay (для внешних браузеров) -->
     <div class="access-denied-overlay" id="auth-overlay" style="<?= $currentUserId ? 'display: none;' : 'display: flex;' ?>">
         <div class="overlay-card">
             <div class="overlay-icon">💬</div>

@@ -6,6 +6,7 @@ namespace Chatgo\Services;
 
 use PDO;
 use Chatgo\Adapters\TelegramAdapter;
+use Chatgo\Security\WebAppAuthenticator;
 
 class TelegramUpdateProcessor
 {
@@ -191,19 +192,13 @@ class TelegramUpdateProcessor
             if ($tokenData) {
                 $tgUserId = (string) $parsed['client_external_id'];
                 $clientName = (string) ($parsed['client_name'] ?? '');
+                $tgUsername = (string) ($parsed['username'] ?? '');
 
-                $userStmt = $this->db->prepare('SELECT id FROM users WHERE telegram_id = ? LIMIT 1');
-                $userStmt->execute([$tgUserId]);
-                $userId = $userStmt->fetchColumn();
-
-                if (!$userId) {
-                    $insertUser = $this->db->prepare('
-                        INSERT INTO users (telegram_id, first_name, created_at)
-                        VALUES (?, ?, NOW())
-                    ');
-                    $insertUser->execute([$tgUserId, $clientName]);
-                    $userId = $this->db->lastInsertId();
-                }
+                $userId = WebAppAuthenticator::findOrCreateUserByTelegram($this->db, [
+                    'id' => $tgUserId,
+                    'first_name' => $clientName,
+                    'username' => $tgUsername
+                ]);
 
                 $updateToken = $this->db->prepare('UPDATE auth_tokens SET user_id = ?, used = 1 WHERE id = ?');
                 $updateToken->execute([$userId, $tokenData['id']]);

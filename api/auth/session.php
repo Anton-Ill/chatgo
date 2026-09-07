@@ -46,16 +46,11 @@ try {
         case 'init_login':
             $botUsername = defined('TELEGRAM_BOT_USERNAME') && TELEGRAM_BOT_USERNAME !== ''
                 ? (string) TELEGRAM_BOT_USERNAME
-                : '';
+                : 'chatgoservice_bot';
+            $botUsername = trim(ltrim($botUsername, '@'));
 
             if ($botUsername === '') {
-                $stmt = $db->query("SELECT name FROM channels WHERE type = 'telegram' LIMIT 1");
-                $chName = (string) ($stmt->fetchColumn() ?: '');
-                $botUsername = ltrim($chName, '@');
-            }
-
-            if ($botUsername === '') {
-                throw new Exception('Бот для входа не настроен на сервере.');
+                $botUsername = 'chatgoservice_bot';
             }
 
             // Генерируем токен
