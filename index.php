@@ -41,6 +41,8 @@ if (isset($_GET['dev_key'])) {
     }
 }
 
+$db = DB::getConnection();
+$currentUserId = WebAppAuthenticator::getAuthenticatedUserId($db);
 $isDevMode = WebAppAuthenticator::isDevAuthorized();
 ?>
 <!DOCTYPE html>
@@ -56,12 +58,29 @@ $isDevMode = WebAppAuthenticator::isDevAuthorized();
     <link rel="stylesheet" href="assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
 </head>
 <body>
-    <!-- Access Denied Overlay -->
-    <div class="access-denied-overlay" id="auth-overlay" style="display: none;">
+    <!-- Login / Auth Overlay -->
+    <div class="access-denied-overlay" id="auth-overlay" style="<?= $currentUserId ? 'display: none;' : 'display: flex;' ?>">
         <div class="overlay-card">
-            <div class="overlay-icon">🔒</div>
-            <h2 class="overlay-title">Доступ ограничен</h2>
-            <p class="overlay-desc">Эта панель доступна исключительно авторизованным операторам внутри встроенного приложения Telegram (WebApp).</p>
+            <div class="overlay-icon">💬</div>
+            <h2 class="overlay-title">Вход в Chatgo</h2>
+            <p class="overlay-desc">Единый дашборд для сообщений из Telegram, WhatsApp, VK, MAX и Instagram.</p>
+            
+            <div id="auth-initial-block">
+                <button type="button" class="btn-tg-connect" style="margin-top: 20px; padding: 14px 20px; font-size: 15px;" onclick="startTelegramLogin()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><path d="M21.5 2L2 9.5l7.5 3L17 6.5l-5.5 8.5v6l4-3.5 6 4.5 3-19.5z"/></svg>
+                    Войти через Telegram
+                </button>
+                <div id="auth-login-error" style="color: #ef4444; font-size: 13px; margin-top: 10px; display: none;"></div>
+            </div>
+
+            <div id="auth-waiting-block" style="display: none; margin-top: 20px;">
+                <div style="font-size: 24px; animation: pulse 1s infinite; margin-bottom: 8px;">⏳</div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Подтвердите вход в Telegram</div>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">Перейдите в бота и нажмите кнопку «Запустить»:</p>
+                <a id="auth-bot-link" href="#" target="_blank" class="btn-tg-connect" style="text-decoration: none; display: inline-flex; width: 100%; justify-content: center;">
+                    Открыть бота
+                </a>
+            </div>
         </div>
     </div>
 
@@ -76,8 +95,8 @@ $isDevMode = WebAppAuthenticator::isDevAuthorized();
                     <?php endif; ?>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
-                    <?php if ($isDevMode): ?>
-                        <button class="dev-logout-btn" onclick="logoutDevMode()" title="Выйти из тестового режима">Выход</button>
+                    <?php if ($currentUserId): ?>
+                        <button class="dev-logout-btn" onclick="logoutSession()" title="Выйти из аккаунта">Выход</button>
                     <?php endif; ?>
                     <button class="settings-btn" onclick="toggleChannelsView()" title="Подключение каналов">⚙️</button>
                 </div>
@@ -140,6 +159,13 @@ $isDevMode = WebAppAuthenticator::isDevAuthorized();
                 <div class="panel-header">
                     <h2 class="panel-title">⚙️ Подключенные каналы</h2>
                     <button class="close-panel-btn" onclick="closeChannelsView()" title="Закрыть настройки">×</button>
+                </div>
+                <!-- Онбординг-баннер для нового клиента (0 каналов) -->
+                <div id="onboarding-welcome-banner" style="display: none; background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">👋 Добро пожаловать в Chatgo!</div>
+                    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                        Подключите ваш первый канал связи, чтобы начать принимать сообщения от клиентов в одном окне.
+                    </div>
                 </div>
                 <div class="channels-list" id="channels-list">
                     <!-- Динамический список подключенных каналов -->

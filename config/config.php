@@ -48,6 +48,8 @@ define('TELEGRAM_API_URL', getenv('TELEGRAM_API_URL') ?: 'https://client.chatgot
 define('TELEGRAM_PERSONAL_SERVICE_URL', getenv('TELEGRAM_PERSONAL_SERVICE_URL') ?: 'http://127.0.0.1:3005');
 define('CHATGO_SECRET', getenv('CHATGO_SECRET') ?: 'CG_Secret_Gate_2026_Secure');
 define('OPERATOR_TELEGRAM_ID', getenv('OPERATOR_TELEGRAM_ID') ?: '');
+define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: '');
+define('TELEGRAM_BOT_USERNAME', getenv('TELEGRAM_BOT_USERNAME') ?: '');
 define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/01_Chatgo');
 
 

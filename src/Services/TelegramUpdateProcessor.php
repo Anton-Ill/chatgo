@@ -162,6 +162,52 @@ class TelegramUpdateProcessor
 
     private function handleStartCommand(array $parsed): ?array
     {
+        // 1. Проверка подтверждения входа через браузер: /start auth_<token>
+        if (str_starts_with($parsed['text'], '/start auth_')) {
+            $authToken = substr(trim($parsed['text']), 12);
+            $stmtToken = $this->db->prepare('
+                SELECT id, user_id, expires_at 
+                FROM auth_tokens 
+                WHERE token = ? AND expires_at > ? 
+                LIMIT 1
+            ');
+            $stmtToken->execute([$authToken, date('Y-m-d H:i:s')]);
+            $tokenData = $stmtToken->fetch();
+
+            if ($tokenData) {
+                $tgUserId = (string) $parsed['client_external_id'];
+                $clientName = (string) ($parsed['client_name'] ?? '');
+
+                $userStmt = $this->db->prepare('SELECT id FROM users WHERE telegram_id = ? LIMIT 1');
+                $userStmt->execute([$tgUserId]);
+                $userId = $userStmt->fetchColumn();
+
+                if (!$userId) {
+                    $insertUser = $this->db->prepare('
+                        INSERT INTO users (telegram_id, first_name, created_at)
+                        VALUES (?, ?, NOW())
+                    ');
+                    $insertUser->execute([$tgUserId, $clientName]);
+                    $userId = $this->db->lastInsertId();
+                }
+
+                $updateToken = $this->db->prepare('UPDATE auth_tokens SET user_id = ?, used = 1 WHERE id = ?');
+                $updateToken->execute([$userId, $tokenData['id']]);
+
+                $this->adapter->sendMessage(
+                    $parsed['client_external_id'],
+                    "🎉 Вход в Chatgo успешно подтвержден!\n\nВернитесь на страницу сервиса в браузере — авторизация завершится автоматически."
+                );
+                return ['ok' => true, 'description' => 'Авторизация в браузере подтверждена'];
+            } else {
+                $this->adapter->sendMessage(
+                    $parsed['client_external_id'],
+                    "❌ Ссылка для входа устарела или недействительна. Запросите новую ссылку в браузере."
+                );
+                return ['ok' => false, 'description' => 'Недействительный токен входа'];
+            }
+        }
+
         $hasBoundOperator = (bool) $this->db->query('SELECT id FROM users WHERE telegram_id IS NOT NULL LIMIT 1')->fetchColumn();
         if (!$hasBoundOperator) {
             $firstUserId = $this->db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn();
@@ -224,8 +270,17 @@ class TelegramUpdateProcessor
             $parsed['external_id']
         );
 
-        // Получаем Telegram ID оператора для уведомления
-        $operatorTelegramId = $this->db->query('SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL LIMIT 1')->fetchColumn();
+        // Получаем Telegram ID владельца этого канала для уведомления
+        $stmtOwner = $this->db->prepare('
+            SELECT u.telegram_id 
+            FROM channels ch
+            JOIN users u ON ch.user_id = u.id
+            WHERE ch.id = ? AND u.telegram_id IS NOT NULL AND u.telegram_id != ""
+            LIMIT 1
+        ');
+        $stmtOwner->execute([$this->channelId]);
+        $operatorTelegramId = $stmtOwner->fetchColumn();
+
         if (!$operatorTelegramId && defined('OPERATOR_TELEGRAM_ID')) {
             $operatorTelegramId = OPERATOR_TELEGRAM_ID;
         }

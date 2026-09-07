@@ -1,18 +1,20 @@
 CREATE DATABASE IF NOT EXISTS `chatgo` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `chatgo`;
 
--- Таблица пользователей (с заделом на будущее)
+-- Таблица пользователей
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `email` VARCHAR(255) NOT NULL UNIQUE,
+  `email` VARCHAR(255) NULL UNIQUE,
   `telegram_id` VARCHAR(50) NULL UNIQUE,
+  `username` VARCHAR(255) NULL,
+  `first_name` VARCHAR(255) NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Таблица токенов беспарольного входа (Magic Link)
+-- Таблица токенов беспарольного входа (Magic Link / Telegram Login)
 CREATE TABLE IF NOT EXISTS `auth_tokens` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT NOT NULL,
+  `user_id` INT NULL,
   `token` VARCHAR(64) NOT NULL UNIQUE,
   `expires_at` TIMESTAMP NOT NULL,
   `used` TINYINT(1) DEFAULT 0,

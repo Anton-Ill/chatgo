@@ -19,7 +19,17 @@ if (activeDevKey) {
     localStorage.setItem('chatgo_dev_key', activeDevKey);
 }
 
+let userChannelsCount = null;
+let loginCheckInterval = null;
+
 function logoutDevMode() {
+    logoutSession();
+}
+
+async function logoutSession() {
+    try {
+        await fetch('/api/auth/session.php?action=logout', { method: 'POST' });
+    } catch (e) {}
     localStorage.removeItem('chatgo_dev_key');
     window.location.href = window.location.pathname + '?logout=1';
 }
@@ -57,8 +67,74 @@ async function tgFetch(url, options = {}) {
     }
 }
 
+async function checkAuthStatus() {
+    try {
+        const res = await tgFetch('/api/auth/session.php?action=status');
+        const data = await res.json();
+        if (data.ok && data.authenticated) {
+            const authOverlay = document.getElementById('auth-overlay');
+            if (authOverlay) authOverlay.style.display = 'none';
+            return true;
+        }
+    } catch (e) {
+        console.error('Ошибка проверки статуса авторизации:', e);
+    }
+    return false;
+}
+
+async function startTelegramLogin() {
+    const initialBlock = document.getElementById('auth-initial-block');
+    const waitingBlock = document.getElementById('auth-waiting-block');
+    const errorDiv = document.getElementById('auth-login-error');
+    const botLink = document.getElementById('auth-bot-link');
+
+    if (errorDiv) errorDiv.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/auth/session.php?action=init_login', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.ok && data.bot_url) {
+            if (initialBlock) initialBlock.style.display = 'none';
+            if (waitingBlock) waitingBlock.style.display = 'block';
+            if (botLink) botLink.href = data.bot_url;
+
+            // На мобильных устройствах пробуем открыть ссылку в Telegram
+            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                window.location.href = data.bot_url;
+            }
+
+            // Запускаем опрос статуса подтверждения токена
+            if (loginCheckInterval) clearInterval(loginCheckInterval);
+            loginCheckInterval = setInterval(async () => {
+                try {
+                    const checkRes = await fetch(`/api/auth/session.php?action=check_token&token=${encodeURIComponent(data.token)}`);
+                    const checkData = await checkRes.json();
+                    if (checkData.ok && checkData.confirmed) {
+                        clearInterval(loginCheckInterval);
+                        window.location.reload();
+                    }
+                } catch (err) {
+                    console.error('Ошибка проверки токена:', err);
+                }
+            }, 1500);
+        } else {
+            if (errorDiv) {
+                errorDiv.innerText = data.error || 'Ошибка генерации ссылки на бота';
+                errorDiv.style.display = 'block';
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка входа через Telegram:', err);
+        if (errorDiv) {
+            errorDiv.innerText = 'Ошибка соединения с сервером';
+            errorDiv.style.display = 'block';
+        }
+    }
+}
+
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Инициализация Telegram WebApp
     if (tg && tg.initData) {
         tg.ready();
@@ -75,6 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
             handleBackAction();
         });
     }
+
+    // Проверяем статус авторизации (для WebApp и браузера)
+    await checkAuthStatus();
+
+    // Первичная проверка каналов и онбординг
+    await initChannelsAndOnboarding();
 
     loadChats();
     // Запуск фонового опроса чатов каждые 3 секунды
@@ -96,6 +178,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Проверка количества каналов при входе для авто-онбординга
+async function initChannelsAndOnboarding() {
+    try {
+        const response = await tgFetch('/api/channels/list.php');
+        const data = await response.json();
+        if (data.ok) {
+            userChannelsCount = data.channels.length;
+            if (userChannelsCount === 0) {
+                // Если каналов нет - сразу открываем панель подключения каналов
+                toggleChannelsView();
+                const banner = document.getElementById('onboarding-welcome-banner');
+                if (banner) banner.style.display = 'block';
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка при инициализации онбординга каналов:", err);
+    }
+}
 
 // Единое действие возврата к списку чатов
 function handleBackAction() {
@@ -255,6 +356,13 @@ async function loadChannels() {
         }
 
         listContainer.innerHTML = '';
+        userChannelsCount = data.channels.length;
+
+        const banner = document.getElementById('onboarding-welcome-banner');
+        if (banner) {
+            banner.style.display = userChannelsCount === 0 ? 'block' : 'none';
+        }
+
         if (data.channels.length === 0) {
             listContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">У вас пока нет подключенных каналов</div>';
             return;
@@ -761,7 +869,25 @@ function renderChats() {
     );
 
     if (filtered.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px; font-size: 13px;">Диалоги не найдены</div>';
+        if (searchVal !== '') {
+            container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px; font-size: 13px;">Диалоги не найдены</div>';
+        } else if (userChannelsCount === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 28px 16px; color: var(--text-secondary);">
+                    <div style="font-size: 32px; margin-bottom: 10px;">🔌</div>
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Каналы не подключены</div>
+                    <div style="font-size: 12px; line-height: 1.5; margin-bottom: 16px;">Подключите первый канал связи для приема диалогов.</div>
+                    <button type="button" class="add-channel-btn" style="padding: 10px 16px; font-size: 13px;" onclick="toggleChannelsView()">+ Подключить канал</button>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div style="text-align: center; color: var(--text-secondary); padding: 30px 16px; font-size: 13px;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
+                    <div>Ожидание сообщений от клиентов...</div>
+                </div>
+            `;
+        }
         return;
     }
 

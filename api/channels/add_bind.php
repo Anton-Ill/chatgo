@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // 1. Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -24,24 +25,19 @@ try {
         exit;
     }
 
-    // 2. Ищем подключенный Telegram-бот в БД
-    $stmt = $db->query("SELECT id, name, settings FROM channels WHERE type = 'telegram' LIMIT 1");
-    $tgChannel = $stmt->fetch();
+    // 2. Ищем имя бота Telegram
+    $botUsername = defined('TELEGRAM_BOT_USERNAME') && TELEGRAM_BOT_USERNAME !== ''
+        ? (string) TELEGRAM_BOT_USERNAME
+        : '';
 
-    if (!$tgChannel) {
-        throw new Exception("Канал Telegram бота не настроен. Сначала подключите Telegram-бот во вкладке настроек.");
+    if ($botUsername === '') {
+        $stmt = $db->query("SELECT name FROM channels WHERE type = 'telegram' LIMIT 1");
+        $chName = (string) ($stmt->fetchColumn() ?: '');
+        $botUsername = ltrim($chName, '@');
     }
 
-    $botUsername = trim($tgChannel['name']);
-    // Убираем символ @, если он есть в начале имени бота
-    if (str_starts_with($botUsername, '@')) {
-        $botUsername = substr($botUsername, 1);
-    }
-
-    // 3. Получаем user_id (первого пользователя)
-    $userId = $db->query('SELECT id FROM users LIMIT 1')->fetchColumn();
-    if (!$userId) {
-        throw new Exception("Пользователи в системе не найдены.");
+    if ($botUsername === '') {
+        throw new Exception("Канал Telegram бота не настроен на сервере.");
     }
 
     // 4. Генерируем случайный токен привязки

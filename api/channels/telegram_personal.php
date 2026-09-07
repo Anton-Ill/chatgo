@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // 1. Проверка авторизации оператора
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         http_response_code(401);
         echo json_encode(['ok' => false, 'error' => 'Доступ запрещен: Не авторизован']);
         exit;
@@ -79,8 +80,9 @@ try {
     };
 
     // Функция обновления/создания канала в БД
-    $syncChannelInDb = function (array $user, string $status) use ($db) {
-        $stmt = $db->query("SELECT id, settings FROM channels WHERE type = 'telegram' LIMIT 1");
+    $syncChannelInDb = function (array $user, string $status) use ($db, $userId) {
+        $stmt = $db->prepare("SELECT id, settings FROM channels WHERE type = 'telegram' AND user_id = ? LIMIT 1");
+        $stmt->execute([$userId]);
         $channel = $stmt->fetch();
 
         $accountName = !empty($user['fullName']) ? $user['fullName'] : 'Telegram';
@@ -102,13 +104,12 @@ try {
             $stmtUpdate = $db->prepare('
                 UPDATE channels 
                 SET name = ?, status = ?, settings = ?
-                WHERE id = ?
+                WHERE id = ? AND user_id = ?
             ');
-            $stmtUpdate->execute([$accountName, $status, $settingsJson, $channel['id']]);
+            $stmtUpdate->execute([$accountName, $status, $settingsJson, $channel['id'], $userId]);
             return (int) $channel['id'];
         }
 
-        $userId = (int) ($db->query('SELECT id FROM users LIMIT 1')->fetchColumn() ?: 1);
         $stmtInsert = $db->prepare('
             INSERT INTO channels (user_id, type, name, status, settings, created_at)
             VALUES (?, ?, ?, ?, ?, NOW())
@@ -165,8 +166,8 @@ try {
 
         case 'disconnect':
             $res = $callGateway('/api/logout', 'POST');
-            // Обновляем статус в БД на disconnected
-            $db->prepare("UPDATE channels SET status = 'disconnected' WHERE type = 'telegram'")->execute();
+            // Обновляем статус в БД на disconnected для текущего пользователя
+            $db->prepare("UPDATE channels SET status = 'disconnected' WHERE type = 'telegram' AND user_id = ?")->execute([$userId]);
             echo json_encode(['ok' => true]);
             break;
 

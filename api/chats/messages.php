@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -28,6 +29,19 @@ try {
 
     if (!$chatId) {
         throw new Exception("Параметр chat_id обязателен.");
+    }
+
+    // Проверяем принадлежность чата текущему пользователю
+    $checkStmt = $db->prepare('
+        SELECT c.id 
+        FROM chats c 
+        JOIN channels ch ON c.channel_id = ch.id 
+        WHERE c.id = ? AND ch.user_id = ? 
+        LIMIT 1
+    ');
+    $checkStmt->execute([$chatId, $userId]);
+    if ($checkStmt->fetchColumn() === false) {
+        throw new Exception("Чат не найден или у вас нет прав на просмотр.");
     }
 
     // Сбрасываем unread_count для данного чата при прочтении

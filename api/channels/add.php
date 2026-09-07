@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // 1. Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -40,13 +41,6 @@ try {
     $allowedTypes = ['telegram', 'whatsapp', 'vk', 'instagram', 'max'];
     if (!in_array($type, $allowedTypes, true)) {
         throw new Exception("Неподдерживаемый тип канала: {$type}");
-    }
-
-    // Получаем user_id (берем первого пользователя системы)
-    $userId = $db->query('SELECT id FROM users LIMIT 1')->fetchColumn();
-    if (!$userId) {
-        $db->exec("INSERT INTO users (email, password_hash) VALUES ('admin@chatgo.ru', 'default_hash')");
-        $userId = $db->lastInsertId();
     }
 
     // 3. Валидация токенов через внешние API мессенджеров

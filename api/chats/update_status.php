@@ -18,7 +18,8 @@ try {
     $db = DB::getConnection();
 
     // 1. Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -35,6 +36,19 @@ try {
 
     if ($chatId <= 0 || !in_array($status, ['active', 'rejected', 'archived'], true)) {
         throw new Exception('Некорректные параметры chat_id или status.');
+    }
+
+    // Проверяем принадлежность чата текущему пользователю
+    $checkStmt = $db->prepare('
+        SELECT c.id 
+        FROM chats c 
+        JOIN channels ch ON c.channel_id = ch.id 
+        WHERE c.id = ? AND ch.user_id = ? 
+        LIMIT 1
+    ');
+    $checkStmt->execute([$chatId, $userId]);
+    if ($checkStmt->fetchColumn() === false) {
+        throw new Exception("Чат #{$chatId} не найден или у вас нет прав на его изменение.");
     }
 
     $chatService = new ChatService($db);

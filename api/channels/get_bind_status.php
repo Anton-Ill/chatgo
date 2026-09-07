@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -24,13 +25,14 @@ try {
         exit;
     }
 
-    // Извлекаем telegram_id первого пользователя системы
-    $stmt = $db->query('SELECT telegram_id FROM users LIMIT 1');
+    // Извлекаем telegram_id текущего пользователя системы
+    $stmt = $db->prepare('SELECT telegram_id FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
     $telegramId = $stmt->fetchColumn();
 
     echo json_encode([
         'ok' => true,
-        'is_bound' => ($telegramId !== null && $telegramId !== ''),
+        'is_bound' => ($telegramId !== null && $telegramId !== false && $telegramId !== ''),
         'telegram_id' => $telegramId ?: ''
     ]);
 

@@ -24,7 +24,8 @@ try {
     $db = DB::getConnection();
 
     // Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -43,18 +44,18 @@ try {
         throw new Exception("Параметры chat_id и text обязательны.");
     }
 
-    // 1. Получаем информацию о чате и клиенте
+    // 1. Получаем информацию о чате и клиенте с проверкой прав пользователя
     $stmt = $db->prepare('
         SELECT c.client_external_id, c.channel_id, ch.type AS channel_type, ch.settings AS channel_settings
         FROM chats c
         JOIN channels ch ON c.channel_id = ch.id
-        WHERE c.id = ?
+        WHERE c.id = ? AND ch.user_id = ?
     ');
-    $stmt->execute([$chatId]);
+    $stmt->execute([$chatId, $userId]);
     $chatData = $stmt->fetch();
 
     if (!$chatData) {
-        throw new Exception("Чат с ID {$chatId} не найден.");
+        throw new Exception("Чат с ID {$chatId} не найден или у вас нет прав на отправку.");
     }
 
     $channelType = $chatData['channel_type'];

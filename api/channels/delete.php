@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // 1. Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -34,13 +35,13 @@ try {
         throw new Exception("Параметр channel_id обязателен.");
     }
 
-    // 3. Получаем тип и настройки канала перед удалением
-    $stmt = $db->prepare('SELECT type, settings FROM channels WHERE id = ?');
-    $stmt->execute([$channelId]);
+    // 3. Получаем тип и настройки канала перед удалением (с проверкой владения)
+    $stmt = $db->prepare('SELECT type, settings FROM channels WHERE id = ? AND user_id = ?');
+    $stmt->execute([$channelId, $userId]);
     $channel = $stmt->fetch();
 
     if (!$channel) {
-        throw new Exception("Канал с ID {$channelId} не найден.");
+        throw new Exception("Канал с ID {$channelId} не найден или у вас нет прав на его удаление.");
     }
 
     $type = $channel['type'];
@@ -100,8 +101,8 @@ try {
     }
 
     // 5. Удаляем канал из базы данных (связанные чаты и сообщения будут удалены каскадно по внешнему ключу)
-    $stmt = $db->prepare('DELETE FROM channels WHERE id = ?');
-    $stmt->execute([$channelId]);
+    $stmt = $db->prepare('DELETE FROM channels WHERE id = ? AND user_id = ?');
+    $stmt->execute([$channelId, $userId]);
 
     echo json_encode([
         'ok' => true

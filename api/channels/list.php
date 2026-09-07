@@ -16,7 +16,8 @@ try {
     $db = DB::getConnection();
 
     // Проверка авторизации
-    if (!WebAppAuthenticator::authenticate($db)) {
+    $userId = WebAppAuthenticator::getAuthenticatedUserId($db);
+    if ($userId === null) {
         echo json_encode([
             'ok' => false,
             'error' => 'Доступ запрещен: Не авторизован'
@@ -24,12 +25,14 @@ try {
         exit;
     }
 
-    // Выбираем каналы, маскируя конфиденциальные настройки settings
-    $stmt = $db->query('
+    // Выбираем каналы только текущего пользователя
+    $stmt = $db->prepare('
         SELECT id, type, name, status, created_at 
         FROM channels 
+        WHERE user_id = ?
         ORDER BY id DESC
     ');
+    $stmt->execute([$userId]);
     $channels = $stmt->fetchAll();
 
     echo json_encode([
