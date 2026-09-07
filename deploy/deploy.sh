@@ -68,9 +68,10 @@ if [ -f "$PROJECT_DIR/tests/manual/fix_db_schema.php" ]; then
     php "$PROJECT_DIR/tests/manual/fix_db_schema.php" || true
 fi
 
-echo "6. Cleaning up test database records..."
-if [ -f "$PROJECT_DIR/tests/manual/test-cleanup-data.php" ]; then
+echo "6. Cleaning up legacy test database records (one-time)..."
+if [ -f "$PROJECT_DIR/tests/manual/test-cleanup-data.php" ] && [ ! -f "$PROJECT_DIR/logs/.cleanup_done" ]; then
     php "$PROJECT_DIR/tests/manual/test-cleanup-data.php" || true
+    touch "$PROJECT_DIR/logs/.cleanup_done"
 fi
 
 echo "=== Deployment finished successfully ==="

@@ -40,14 +40,24 @@ try {
     }
     echo "Удалено каналов: {$deletedChannels}\n";
 
-    // 3. Удаляем остаточные тестовые диалоги (если создавались без канала или напрямую)
+    // 3. Удаляем тестовые диалоги (включая накопившиеся сервисные тесты)
     $deletedChats = $db->exec("
         DELETE FROM chats 
         WHERE client_name LIKE 'Test%' 
            OR client_name LIKE 'Тест%' 
+           OR client_name LIKE '%Tester%'
+           OR client_name IN ('RemoteTestUser', 'NewBotTester', 'TelegramTester', 'ProdClient')
            OR client_external_id LIKE 'mock_%'
+           OR client_external_id LIKE 'test_%'
     ");
-    echo "Удалено остаточных тестовых диалогов: {$deletedChats}\n";
+    echo "Удалено тестовых диалогов: {$deletedChats}\n";
+
+    // 4. Очищаем сиротские сообщения (если остались без чата)
+    $deletedMessages = $db->exec("
+        DELETE FROM messages 
+        WHERE chat_id NOT IN (SELECT id FROM chats)
+    ");
+    echo "Удалено остаточных сообщений: {$deletedMessages}\n";
 
     // 4. Проверяем оставшиеся каналы
     $remaining = $db->query("SELECT id, user_id, name, type, status FROM channels")->fetchAll();
