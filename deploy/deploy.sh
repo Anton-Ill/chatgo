@@ -53,4 +53,9 @@ if systemctl is-active --quiet chatgo-telegram; then
     systemctl disable chatgo-telegram 2>/dev/null || true
 fi
 
+echo "5. Cleaning up test database records..."
+if [ -f "$PROJECT_DIR/tests/manual/test-cleanup-data.php" ]; then
+    php "$PROJECT_DIR/tests/manual/test-cleanup-data.php" || true
+fi
+
 echo "=== Deployment finished successfully ==="
