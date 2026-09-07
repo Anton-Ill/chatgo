@@ -198,6 +198,15 @@ try {
             if (!($resData['ok'] ?? false)) {
                 throw new Exception("Канал сохранен, но не удалось зарегистрировать вебхук в Telegram: " . ($resData['description'] ?? 'неизвестно'));
             }
+
+            // Настройка кнопки меню бота (Menu Button / WebApp)
+            try {
+                $tgAdapter = new \Chatgo\Adapters\TelegramAdapter($token, TELEGRAM_API_URL, CHATGO_SECRET);
+                $menuUrl = str_starts_with(strtolower(BASE_URL), 'https://') ? rtrim(BASE_URL, '/') : 'https://chatgo.ru';
+                $tgAdapter->setChatMenuButton($menuUrl, 'Панель');
+            } catch (\Throwable $e) {
+                // Не прерываем сохранение канала при ошибке кнопки меню
+            }
         } elseif ($type === 'max') {
             $accessToken = $settings['access_token'] ?? '';
             $verifyToken = $settings['verify_token'] ?? ''; // secret
