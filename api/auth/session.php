@@ -44,7 +44,6 @@ try {
             break;
 
         case 'init_login':
-            // Находим имя бота
             $botUsername = defined('TELEGRAM_BOT_USERNAME') && TELEGRAM_BOT_USERNAME !== ''
                 ? (string) TELEGRAM_BOT_USERNAME
                 : '';
@@ -65,27 +64,24 @@ try {
 
             try {
                 $firstUserId = (int) ($db->query('SELECT id FROM users ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
-                if (!$firstUserId) {
-                    try {
-                        $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
-                        $firstUserId = (int) $db->lastInsertId();
-                    } catch (Throwable $e1) {
-                        $firstUserId = 1;
-                    }
-                }
             } catch (Throwable $e) {
-                $firstUserId = 1;
+                $firstUserId = 0;
             }
 
-            try {
-                $stmtToken = $db->prepare('
-                    INSERT INTO auth_tokens (user_id, token, expires_at, used)
-                    VALUES (?, ?, ?, 0)
-                ');
-                $stmtToken->execute([$firstUserId > 0 ? $firstUserId : null, $token, $expiresAt]);
-            } catch (Throwable $e) {
-                throw new Exception("Ошибка записи в auth_tokens: " . $e->getMessage());
+            if (!$firstUserId) {
+                try {
+                    $db->exec("INSERT INTO users (email, created_at) VALUES ('admin@chatgo.ru', NOW())");
+                    $firstUserId = (int) $db->lastInsertId();
+                } catch (Throwable $e) {
+                    $firstUserId = 1;
+                }
             }
+
+            $stmtToken = $db->prepare('
+                INSERT INTO auth_tokens (user_id, token, expires_at, used)
+                VALUES (?, ?, ?, 0)
+            ');
+            $stmtToken->execute([$firstUserId > 0 ? $firstUserId : 1, $token, $expiresAt]);
 
             $botUrl = "https://t.me/{$botUsername}?start=auth_{$token}";
 
