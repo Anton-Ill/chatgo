@@ -6,9 +6,13 @@
  */
 
 // Включаем отображение ошибок для разработки
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
+if (function_exists('opcache_reset')) {
+    @opcache_reset();
+}
+ini_set('opcache.enable', '0');
 
 // Установка временной зоны
 date_default_timezone_set('Europe/Moscow');
