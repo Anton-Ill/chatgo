@@ -82,9 +82,9 @@ try {
                     INSERT INTO auth_tokens (user_id, token, expires_at, used)
                     VALUES (?, ?, ?, 0)
                 ');
-                $stmtToken->execute([$firstUserId, $token, $expiresAt]);
+                $stmtToken->execute([$firstUserId > 0 ? $firstUserId : null, $token, $expiresAt]);
             } catch (Throwable $e) {
-                throw new Exception("Ошибка записи в auth_tokens [user_id={$firstUserId}]: " . $e->getMessage());
+                throw new Exception("Ошибка записи в auth_tokens: " . $e->getMessage());
             }
 
             $botUrl = "https://t.me/{$botUsername}?start=auth_{$token}";
