@@ -82,7 +82,7 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 
 // Константы API и безопасности
-define('TELEGRAM_API_URL', getenv('TELEGRAM_API_URL') ?: 'https://client.chatgot.ru/tg-api');
+define('TELEGRAM_API_URL', getenv('TELEGRAM_API_URL') ?: 'https://client.chatgo.ru/tg-api');
 define('TELEGRAM_PERSONAL_SERVICE_URL', getenv('TELEGRAM_PERSONAL_SERVICE_URL') ?: 'http://127.0.0.1:3005');
 define('CHATGO_SECRET', getenv('CHATGO_SECRET') ?: 'CG_Secret_Gate_2026_Secure');
 define('OPERATOR_TELEGRAM_ID', getenv('OPERATOR_TELEGRAM_ID') ?: '');
@@ -96,7 +96,7 @@ define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
 define('SMTP_PORT', getenv('SMTP_PORT') ?: '587');
 define('SMTP_USER', getenv('SMTP_USER') ?: '');
 define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
-define('SMTP_FROM', getenv('SMTP_FROM') ?: 'noreply@chatgot.ru');
+define('SMTP_FROM', getenv('SMTP_FROM') ?: 'noreply@chatgo.ru');
 
 // Простой PSR-4 автозагрузчик классов
 spl_autoload_register(function ($class) {
